@@ -1,6 +1,9 @@
 import java.awt.Color;
 import java.util.ArrayList;
 
+import uchicago.src.sim.analysis.DataSource;
+import uchicago.src.sim.analysis.OpenSequenceGraph;
+import uchicago.src.sim.analysis.Sequence;
 import uchicago.src.sim.engine.BasicAction;
 import uchicago.src.sim.engine.Schedule;
 import uchicago.src.sim.engine.SimModelImpl;
@@ -46,6 +49,31 @@ public class RabbitsGrassSimulationModel extends SimModelImpl {
 	private ArrayList agentList;
 	
 	private DisplaySurface displaySurf;
+	
+	private OpenSequenceGraph amountOfGrassInSpace;
+	private OpenSequenceGraph amountOfRabbitsInSpace;
+
+	  class grassInSpace implements DataSource, Sequence {
+
+	    public Object execute() {
+	      return new Double(getSValue());
+	    }
+
+	    public double getSValue() {
+	      return (double)rgsSpace.getTotalGrass();
+	    }
+	  }
+	  
+	  class rabbitsInSpace implements DataSource, Sequence {
+
+		    public Object execute() {
+		      return new Double(getSValue());
+		    }
+
+		    public double getSValue() {
+		      return (double) countLivingRabbits();
+		    }
+		  }
 
 		public static void main(String[] args) {
 			
@@ -67,6 +95,8 @@ public class RabbitsGrassSimulationModel extends SimModelImpl {
 		    buildDisplay();
 		    
 		    displaySurf.display();
+		    amountOfGrassInSpace.display();
+		    amountOfRabbitsInSpace.display();
 		}
 		
 		public void buildModel(){
@@ -93,11 +123,35 @@ public class RabbitsGrassSimulationModel extends SimModelImpl {
 			          RabbitsGrassSimulationAgent rgsa = (RabbitsGrassSimulationAgent)agentList.get(i);
 			          rgsa.step();
 			        }
+			        
+			        int deadAgents = reapDeadRabbits();
+			        for(int i =0; i < deadAgents; i++){
+			          addNewRabbit();
+			        }
+			        
+			        displaySurf.updateDisplay();
 			      }
 			    }
 
 			    schedule.scheduleActionBeginning(0, new CarryDropStep());
-		}
+			    
+			    class RabbitsGrassSimulationCountLiving extends BasicAction {
+			        public void execute(){
+			          countLivingRabbits();
+			        }
+			      }
+
+			      schedule.scheduleActionAtInterval(10, new RabbitsGrassSimulationCountLiving());
+
+			      class RabbitsGrassSimulationUpdateGrassInSpace extends BasicAction {
+			        public void execute(){
+			          amountOfGrassInSpace.step();
+			        }
+			      }
+
+			      schedule.scheduleActionAtInterval(10, new RabbitsGrassSimulationUpdateGrassInSpace());
+			    }
+		
 
 		public void buildDisplay(){
 			System.out.println("Running BuildDisplay");
@@ -132,10 +186,24 @@ public class RabbitsGrassSimulationModel extends SimModelImpl {
 		}
 		
 		private void addNewRabbit(){
-		  RabbitsGrassSimulationAgent a = new RabbitsGrassSimulationAgent();
+		  RabbitsGrassSimulationAgent a = new RabbitsGrassSimulationAgent(energyRabbits);
 		  agentList.add(a);
 		  rgsSpace.addAgent(a);
 		}
+		
+		private int reapDeadRabbits(){
+		    int count = 0;
+		    for(int i = (agentList.size() - 1); i >= 0 ; i--){
+		      RabbitsGrassSimulationAgent rgsa = (RabbitsGrassSimulationAgent)agentList.get(i);
+		      if(rgsa.getEnergy() < 0){
+		        rgsSpace.removeRabbitAt(rgsa.getX(), rgsa.getY());
+		        rgsSpace.spreadGrass(rgsa.getEnergy());
+		        agentList.remove(i);
+		        count++;
+		      }
+		    }
+		    return count;
+		  }
 
 		public Schedule getSchedule() {
 			return schedule;
@@ -151,11 +219,32 @@ public class RabbitsGrassSimulationModel extends SimModelImpl {
 			    displaySurf.dispose();
 			  }
 			  displaySurf = null;
+			  
+			  if (amountOfGrassInSpace != null){
+			      amountOfGrassInSpace.dispose();
+			    }
+			    amountOfGrassInSpace = null;
+			    amountOfRabbitsInSpace = countLivingRabbits();
+
 
 			  displaySurf = new DisplaySurface(this, "Rabbit Grass Simulation Model Window 1");
+			  amountOfGrassInSpace = new OpenSequenceGraph("Amount Of Grass In Space",this);
+			  livingRabbits = new OpenSequenceGraph("Amount Of Rabbits In Space",this);
 
 			  registerDisplaySurface("Rabbit Grass Simulation Model Window 1", displaySurf);
+			  this.registerMediaProducer("Plot", amountOfGrassInSpace, livingRabbits);
 		}
+		
+		private int countLivingRabbits(){
+		    int livingAgents = 0;
+		    for(int i = 0; i < agentList.size(); i++){
+		      RabbitsGrassSimulationAgent rgsa = (RabbitsGrassSimulationAgent)agentList.get(i);
+		      if(rgsa.getEnergy() > 0) livingAgents++;
+		    }
+		    System.out.println("Number of living agents is: " + livingAgents);
+
+		    return livingAgents;
+		  }
 		
 		public int getNumInitRabbits(){
 		    return numInitRabbits;

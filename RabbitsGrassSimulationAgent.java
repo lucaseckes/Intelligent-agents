@@ -2,6 +2,7 @@ import java.awt.Color;
 
 import uchicago.src.sim.gui.Drawable;
 import uchicago.src.sim.gui.SimGraphics;
+import uchicago.src.sim.space.Object2DGrid;
 
 
 /**
@@ -14,10 +15,31 @@ public class RabbitsGrassSimulationAgent implements Drawable {
 
 	private int x;
 	private int y;
+	private int vX;
+	private int vY;
 	private int energy;
-	private int stepsToLive;
 	private static int IDNumber = 0;
 	private int ID;
+	private RabbitsGrassSimulationSpace rgsSpace;
+	
+	public RabbitsGrassSimulationAgent(int EnergyRabbits){
+	    x = -1;
+	    y = -1;
+	    energy = EnergyRabbits;
+	    setVxVy();
+	    IDNumber++;
+	    ID = IDNumber;
+	  }
+	
+	private void setVxVy(){
+		    vX = 0;
+		    vY = 0;
+		    while((vX == 0) && ( vY == 0)){
+		      vX = (int)Math.floor(Math.random() * 3) - 1;
+		      vY = (int)Math.floor(Math.random() * 3) - 1;
+		    }
+		  }
+
 	
 	public void draw(SimGraphics arg0) {
 		 arg0.drawFastRoundRect(Color.white);
@@ -36,6 +58,10 @@ public class RabbitsGrassSimulationAgent implements Drawable {
 	  y = newY;
 	}
 	
+	public void setRabbitsGrassSimulationSpace(RabbitsGrassSimulationSpace rgss){
+	    rgsSpace = rgss;
+	  }
+	
 	public String getID(){
 	    return "A-" + ID;
 	  }
@@ -44,22 +70,32 @@ public class RabbitsGrassSimulationAgent implements Drawable {
 	    return energy;
 	  }
 
-	  public int getStepsToLive(){
-	    return stepsToLive;
-	  }
-
 	  public void report(){
 	    System.out.println(getID() + 
 	                       " at " + 
 	                       x + ", " + y + 
 	                       " has " + 
-	                       getEnergy() + " energy" + 
-	                       " and " + 
-	                       getStepsToLive() + " steps to live.");
+	                       getEnergy() + " energy");
 	  }
 	  
 	  public void step(){
-		    stepsToLive--;
+		  int newX = x + vX;
+		    int newY = y + vY;
+
+		    Object2DGrid grid = rgsSpace.getCurrentAgentSpace();
+		    newX = (newX + grid.getSizeX()) % grid.getSizeX();
+		    newY = (newY + grid.getSizeY()) % grid.getSizeY();
+		    if(tryMove(newX, newY)){
+		        energy += rgsSpace.takeGrassAt(x, y);
+		      }
+		      else{
+		        setVxVy();
+		      }
+		    energy--;
+		  }
+	  
+	  private boolean tryMove(int newX, int newY){
+		    return rgsSpace.moveAgentAt(x, y, newX, newY);
 		  }
 
 }
