@@ -2,7 +2,7 @@ import java.awt.Color;
 
 import uchicago.src.sim.gui.Drawable;
 import uchicago.src.sim.gui.SimGraphics;
-import uchicago.src.sim.space.Object2DGrid;
+import uchicago.src.sim.space.Object2DTorus;
 
 
 /**
@@ -82,7 +82,7 @@ public class RabbitsGrassSimulationAgent implements Drawable {
 		  int newX = x + vX;
 		    int newY = y + vY;
 
-		    Object2DGrid grid = rgsSpace.getCurrentAgentSpace();
+		    Object2DTorus grid = rgsSpace.getCurrentAgentSpace();
 		    newX = (newX + grid.getSizeX()) % grid.getSizeX();
 		    newY = (newY + grid.getSizeY()) % grid.getSizeY();
 		    if(tryMove(newX, newY)){

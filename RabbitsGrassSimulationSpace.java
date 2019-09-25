@@ -1,4 +1,4 @@
-import uchicago.src.sim.space.Object2DGrid;
+import uchicago.src.sim.space.Object2DTorus;
 
 /**
  * Class that implements the simulation space of the rabbits grass simulation.
@@ -6,12 +6,12 @@ import uchicago.src.sim.space.Object2DGrid;
  */
 
 public class RabbitsGrassSimulationSpace {
-	private Object2DGrid grassSpace;
-	private Object2DGrid agentSpace;
+	private Object2DTorus grassSpace;
+	private Object2DTorus agentSpace;
 	
 	  public RabbitsGrassSimulationSpace(int Size){
-		    grassSpace = new Object2DGrid(Size, Size);
-		    agentSpace = new Object2DGrid(Size, Size);
+		    grassSpace = new Object2DTorus(Size, Size);
+		    agentSpace = new Object2DTorus(Size, Size);
 		    for(int i = 0; i < Size; i++){
 		      for(int j = 0; j < Size; j++){
 		        grassSpace.putObjectAt(i,j,new Integer(0));
@@ -29,10 +29,29 @@ public class RabbitsGrassSimulationSpace {
 
 		      // Get the value of the object at those coordinates
 		      int currentValue = getGrassAt(x, y);
-		      // Replace the Integer object with another one with the new value
-		      grassSpace.putObjectAt(x,y,new Integer(currentValue + 1));
+		      if(currentValue == 0){
+		    	  grassSpace.putObjectAt(x,y,new Integer(currentValue + 1));
+		      }
+		      else {
+		    	  i--;
+		      }
 		    }
 		  }
+	  
+	  public Object2DTorus addGrass(int grassGrowthRate) {
+		  for(int i = 0; i < grassGrowthRate; i++){
+			
+			  // Choose coordinates
+		      int x = (int)(Math.random()*(grassSpace.getSizeX()));
+		      int y = (int)(Math.random()*(grassSpace.getSizeY()));
+
+		      // Get the value of the object at those coordinates
+		      int currentValue = getGrassAt(x, y);
+		      // Replace the Integer object with another one with the new value
+		      grassSpace.putObjectAt(x,y,new Integer(currentValue + 1));
+		  }
+		  return grassSpace;
+	  }
 	  
 	  public int getGrassAt(int x, int y){
 		    int i;
@@ -45,11 +64,11 @@ public class RabbitsGrassSimulationSpace {
 		    return i;
 		  }
 	  
-	  public Object2DGrid getCurrentGrassSpace(){
+	  public Object2DTorus getCurrentGrassSpace(){
 		    return grassSpace;
 		  }
 	  
-	  public Object2DGrid getCurrentAgentSpace(){
+	  public Object2DTorus getCurrentAgentSpace(){
 		    return agentSpace;
 		  }
 	  
