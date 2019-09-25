@@ -30,10 +30,10 @@ public class RabbitsGrassSimulationModel extends SimModelImpl {
 	// Default Values
 	private static final int TORUSSIZE = 20;
 	private static final int NUMINITRABBITS = 8;
-	private static final int ENERGYRABBITS = 5;
+	private static final int ENERGYRABBITS = 15;
 	private static final int BIRTHTHRESHOLD = 20;
-	private static final int NUMINITGRASS = 10;
-	private static final int GRASSGROWTHRATE = 3;
+	private static final int NUMINITGRASS = 90;
+	private static final int GRASSGROWTHRATE = 35;
 
 	
 	private Schedule schedule;
@@ -189,6 +189,7 @@ public class RabbitsGrassSimulationModel extends SimModelImpl {
 			 for(int i = (agentList.size() - 1); i >= 0 ; i--){
 				 RabbitsGrassSimulationAgent rgsa = (RabbitsGrassSimulationAgent)agentList.get(i);
 				 if(rgsa.getEnergy() > birthThreshold){
+					 rgsa.setEnergy(energyRabbits);
 					 RabbitsGrassSimulationAgent a = new RabbitsGrassSimulationAgent(energyRabbits);
 					 agentList.add(a);
 					 rgsSpace.addAgent(a);

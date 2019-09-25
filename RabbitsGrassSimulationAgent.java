@@ -69,6 +69,10 @@ public class RabbitsGrassSimulationAgent implements Drawable {
 	  public int getEnergy(){
 	    return energy;
 	  }
+	  
+	  public void setEnergy(int nr){
+		    energy = nr;
+	 }
 
 	  public void report(){
 	    System.out.println(getID() + 

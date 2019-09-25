@@ -30,7 +30,7 @@ public class RabbitsGrassSimulationSpace {
 		      // Get the value of the object at those coordinates
 		      int currentValue = getGrassAt(x, y);
 		      if(currentValue == 0){
-		    	  grassSpace.putObjectAt(x,y,new Integer(currentValue + 1));
+		    	  grassSpace.putObjectAt(x,y,new Integer(1));
 		      }
 		      else {
 		    	  i--;
@@ -47,8 +47,12 @@ public class RabbitsGrassSimulationSpace {
 
 		      // Get the value of the object at those coordinates
 		      int currentValue = getGrassAt(x, y);
-		      // Replace the Integer object with another one with the new value
-		      grassSpace.putObjectAt(x,y,new Integer(currentValue + 1));
+		      if(currentValue == 0){
+		    	  grassSpace.putObjectAt(x,y,new Integer(1));
+		      }
+		      else {
+		    	  i--;
+		      }
 		  }
 		  return grassSpace;
 	  }
@@ -103,7 +107,7 @@ public class RabbitsGrassSimulationSpace {
 			  }
 		  
 		  public int takeGrassAt(int x, int y){
-			    int energy = getGrassAt(x, y);
+			    int energy = 5*getGrassAt(x, y);
 			    grassSpace.putObjectAt(x, y, new Integer(0));
 			    return energy;
 			  }
@@ -121,12 +125,12 @@ public class RabbitsGrassSimulationSpace {
 			  }
 		  
 		  public int getTotalGrass(){
-			    int totalMoney = 0;
+			    int totalGrass = 0;
 			    for(int i = 0; i < agentSpace.getSizeX(); i++){
 			      for(int j = 0; j < agentSpace.getSizeY(); j++){
-			        totalMoney += getGrassAt(i,j);
+			        totalGrass += getGrassAt(i,j);
 			      }
 			    }
-			    return totalMoney;
+			    return totalGrass;
 			  }
 }
