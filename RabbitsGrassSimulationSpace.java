@@ -106,8 +106,8 @@ public class RabbitsGrassSimulationSpace {
 			    agentSpace.putObjectAt(x, y, null);
 			  }
 		  
-		  public int takeGrassAt(int x, int y){
-			    int energy = 5*getGrassAt(x, y);
+		  public int takeGrassAt(int x, int y, int energyGrass){
+			    int energy = energyGrass*getGrassAt(x, y);
 			    grassSpace.putObjectAt(x, y, new Integer(0));
 			    return energy;
 			  }

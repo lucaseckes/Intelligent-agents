@@ -33,6 +33,7 @@ public class RabbitsGrassSimulationModel extends SimModelImpl {
 	private static final int ENERGYRABBITS = 15;
 	private static final int BIRTHTHRESHOLD = 20;
 	private static final int NUMINITGRASS = 90;
+	private static final int ENERGYGRASS = 5;
 	private static final int GRASSGROWTHRATE = 35;
 
 	
@@ -42,6 +43,7 @@ public class RabbitsGrassSimulationModel extends SimModelImpl {
 	private int energyRabbits = ENERGYRABBITS;
 	private int birthThreshold = BIRTHTHRESHOLD;
 	private int numInitGrass = NUMINITGRASS;
+	private int energyGrass = ENERGYGRASS;
 	private int grassGrowthRate = GRASSGROWTHRATE;
 	
 	private RabbitsGrassSimulationSpace rgsSpace;
@@ -107,7 +109,6 @@ public class RabbitsGrassSimulationModel extends SimModelImpl {
 		      }
 		    for(int i = 0; i < agentList.size(); i++){
 		        RabbitsGrassSimulationAgent rgsa = (RabbitsGrassSimulationAgent)agentList.get(i);
-		        rgsa.report();
 		      }
 		}
 
@@ -177,7 +178,7 @@ public class RabbitsGrassSimulationModel extends SimModelImpl {
 			// TODO Auto-generated method stub
 			// Parameters to be set by users via the Repast UI slider bar
 			// Do "not" modify the parameters names provided in the skeleton code, you can add more if you want 
-			String[] params = { "TorusSize", "NumInitRabbits", "EnergyRabbits", "BirthThreshold",  "NumInitGrass", "GrassGrowthRate"};
+			String[] params = { "TorusSize", "NumInitRabbits", "EnergyRabbits", "BirthThreshold",  "NumInitGrass", "EnergyGrass", "GrassGrowthRate"};
 			return params;
 		}
 
@@ -190,7 +191,7 @@ public class RabbitsGrassSimulationModel extends SimModelImpl {
 				 RabbitsGrassSimulationAgent rgsa = (RabbitsGrassSimulationAgent)agentList.get(i);
 				 if(rgsa.getEnergy() > birthThreshold){
 					 rgsa.setEnergy(energyRabbits);
-					 RabbitsGrassSimulationAgent a = new RabbitsGrassSimulationAgent(energyRabbits);
+					 RabbitsGrassSimulationAgent a = new RabbitsGrassSimulationAgent(energyRabbits, energyGrass);
 					 agentList.add(a);
 					 rgsSpace.addAgent(a);
 				 }
@@ -198,7 +199,7 @@ public class RabbitsGrassSimulationModel extends SimModelImpl {
 		}
 		
 		private void addNewRabbit(){
-		    RabbitsGrassSimulationAgent a = new RabbitsGrassSimulationAgent(energyRabbits);
+		    RabbitsGrassSimulationAgent a = new RabbitsGrassSimulationAgent(energyRabbits, energyGrass);
 		    agentList.add(a);
 		    rgsSpace.addAgent(a);
 		  }
@@ -284,7 +285,7 @@ public class RabbitsGrassSimulationModel extends SimModelImpl {
 		}
 
 		public void setBirthThreshold(int bt){
-			energyRabbits = bt;
+			birthThreshold = bt;
 		}
 		
 		public int getNumInitGrass(){
@@ -295,12 +296,20 @@ public class RabbitsGrassSimulationModel extends SimModelImpl {
 			numInitGrass = nig;
 		}
 		
+		public int getEnergyGrass(){
+		    return energyGrass;
+		}
+
+		public void setEnergyGrass(int eg){
+			energyGrass = eg;
+		}
+		
 		public int getGrassGrowthRate(){
 		    return grassGrowthRate;
 		}
 
 		public void setGrassGrowthRate(int ggr){
-			energyRabbits = ggr;
+			grassGrowthRate = ggr;
 		}
 		
 }
