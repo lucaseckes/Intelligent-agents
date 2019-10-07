@@ -19,6 +19,7 @@ public class ReactiveTemplate implements ReactiveBehavior {
 
 	private Random random;
 	private double pPickup;
+	private double cost_per_km;
 	private int numActions;
 	private Agent myAgent;
 	private TaskDistribution myDistribution;
@@ -36,7 +37,8 @@ public class ReactiveTemplate implements ReactiveBehavior {
 				0.95);
 
 		this.random = new Random();
-		this.pPickup = discount;
+		this.pPickup = 0.95;
+		this.cost_per_km = 5;
 		this.numActions = 0;
 		this.myAgent = agent;
 		this.myDistribution = td;
@@ -85,11 +87,11 @@ public class ReactiveTemplate implements ReactiveBehavior {
 			List<City> Neighbors = Cities.get(s).neighbors();
 			for (int j = 0; j<9; j++) {
 				//Calculate the average reward of taking the pickup action in this city
-				matrix[s][0] += myDistribution.probability(Cities.get(s), Cities.get(j))*myDistribution.reward(Cities.get(s), Cities.get(j)); 
+				matrix[s][0] += myDistribution.probability(Cities.get(s), Cities.get(j))*(myDistribution.reward(Cities.get(s), Cities.get(j))-cost_per_km*Cities.get(s).distanceTo(Cities.get(j))); 
 			}
 			for (int k = 0; k<Neighbors.size(); k++) {
 				//Calculate the reward (negative value) of not taking the pickup action and going in another city 
-				matrix[s][1] -= Cities.get(s).distanceTo(Neighbors.get(k));
+				matrix[s][1] -= cost_per_km * (Cities.get(s).distanceTo(Neighbors.get(k)));
 			}
 			matrix[s][1] = matrix[s][1]/Neighbors.size();
 		} 
@@ -97,19 +99,65 @@ public class ReactiveTemplate implements ReactiveBehavior {
 	}
 	
 	public double [][][] transitionMatrix(){
-		double [][][] matrix = new double [9][2][9];
-		for (int i=0; i<9; i++) {
+		List<City> Cities;	
+		Cities = myTopology.cities();
+		int size = myTopology.size();
+		double sum = 0;
+		double min1 = 0;
+		double sum1 =0;
+		double min2 = 0;
+		double sum2 =0;
+		double [][][]matrix = new double [size][2][size];
+		double []norm1 = new double [size];
+		double []norm2 = new double [size];
+		
+		
+		for (int i=0; i<size; i++) {
 			for (int j=0; j<2; j++) {
-				for (int k = 0; k<9; k++) {
-					matrix[i][j][k] = Math.random();
+				for (int k = 0; k<size; k++) {
+					
+					matrix[i][0][k] = myDistribution.probability(Cities.get(i), Cities.get(k));
+					if(!(Cities.get(i).hasNeighbor(Cities.get(k)))) {
+						matrix[i][1][k] = 0;
+					}
+					else {
+						for (int n=0; n<size; n++) {
+							sum += myDistribution.probability(Cities.get(k), Cities.get(n));
+							
+						}
+							
+						matrix[i][1][k] = sum;
+						
+						
+						
+					}
+					sum = 0;
 				}
+				
 			}
+			//add min-max normalization between 0 and 1 
+			norm1 = matrix[i][0];
+			norm2 = matrix[i][1];
+			min1 =Arrays.stream(norm1).min().getAsDouble();
+			sum1 =Arrays.stream(norm1).sum();
+			min2 =Arrays.stream(norm2).min().getAsDouble();
+			sum2 =Arrays.stream(norm2).sum();
+			for (int k = 0; k<size; k++) {
+				norm1[k] = (norm1[k]- min1)/(sum1-min1);
+				norm2[k] = (norm2[k]- min2)/(sum2-min2);
+			}
+			matrix[i][0] = norm1;
+			matrix[i][1] = norm2;
 		}
+		
+	
+	
 		return matrix;
+		
 	}
 	
 	public double [] valueFunction() {
-		double epsilon = 1000;
+		double epsilon = 100;
 		double [] old_value = new double [9];
 		for (int i = 0; i<9; i++) {
 			old_value[i] = rewardMatrix[i][0];
@@ -132,6 +180,7 @@ public class ReactiveTemplate implements ReactiveBehavior {
 			}
 			old_value = new_value;
 		}
+		System.out.println(Arrays.toString(new_value));
 		return new_value;
 	}
 		
