@@ -27,6 +27,9 @@ public class ReactiveTemplate implements ReactiveBehavior {
 	private double [][] rewardMatrix;
 	private double [][][] transitionMatrix;
 	private double [] valueFunction;
+	private boolean dummy1;
+	private boolean dummy2;
+	private int compt;
 
 	@Override
 	public void setup(Topology topology, TaskDistribution td, Agent agent) {
@@ -46,37 +49,81 @@ public class ReactiveTemplate implements ReactiveBehavior {
 		this.rewardMatrix = rewardMatrix();
 		this.transitionMatrix = transitionMatrix();
 		this.valueFunction = valueFunction();
+		this.dummy1 = false;
+		this.dummy2 = false;
+		this.compt = 0;
 	}
 
 	@Override
 	public Action act(Vehicle vehicle, Task availableTask) {
 		Action action;
-		double [] policy = new double [2];
-		if (availableTask != null ) {
-			City currentCity = vehicle.getCurrentCity();
-			for(int a = 0; a<2; a++) {
-				policy[a] = rewardMatrix[currentCity.id][a];
-				for (int s_ = 0; s_<9; s_++) {
-					policy[a] += pPickup*transitionMatrix[currentCity.id][a][s_]*valueFunction[currentCity.id];
-				}
-			}
-			if (policy[0]>policy[1]) {
+		if (dummy1 == true && dummy2 == true) {
+			System.out.println("Error : Need to choose between one of the two dummies");
+			action = new Move(vehicle.getCurrentCity());
+			return action;
+		}
+		else if (dummy1 == true) {
+			if (availableTask == null || random.nextDouble() > pPickup) {
+				City currentCity = vehicle.getCurrentCity();
+				action = new Move(currentCity.randomNeighbor(random));
+			} else {
 				action = new Pickup(availableTask);
 			}
-			else {
+			
+			if (numActions >= 1) {
+				System.out.println("The total profit after "+numActions+" actions is "+myAgent.getTotalProfit()+" (average profit: "+(myAgent.getTotalProfit() / (double)numActions)+")");
+			}
+			numActions++;
+			
+			return action;
+		}
+		else if (dummy2 == true) {
+			if (availableTask == null) {
+				City currentCity = vehicle.getCurrentCity();
+				action = new Move(currentCity.randomNeighbor(random));
+			} else {
+				action = new Pickup(availableTask);
+			}
+			
+			if (numActions >= 1) {
+				System.out.println("The total profit after "+numActions+" actions is "+myAgent.getTotalProfit()+" (average profit: "+(myAgent.getTotalProfit() / (double)numActions)+")");
+			}
+			numActions++;
+			
+			return action;
+		}
+		else {
+			double [] policy = new double [2];
+			if (availableTask != null ) {
+				City currentCity = vehicle.getCurrentCity();
+				for(int a = 0; a<2; a++) {
+					policy[a] = rewardMatrix[currentCity.id][a];
+					for (int s_ = 0; s_<9; s_++) {
+						policy[a] += pPickup*transitionMatrix[currentCity.id][a][s_]*valueFunction[currentCity.id];
+					}
+				}
+				System.out.println(policy[0]);
+				System.out.println(policy[1]);
+				if (policy[0]>policy[1]) {
+					action = new Pickup(availableTask);
+				}
+				else {
+					compt += 1;
+					System.out.println("Number of tasks refused = " + compt);
+					action = new Move(currentCity.randomNeighbor(random));
+				}
+			} else {
+				City currentCity = vehicle.getCurrentCity();
 				action = new Move(currentCity.randomNeighbor(random));
 			}
-		} else {
-			City currentCity = vehicle.getCurrentCity();
-			action = new Move(currentCity.randomNeighbor(random));
-		}
 		
-		if (numActions >= 1) {
-			System.out.println("The total profit after "+numActions+" actions is "+myAgent.getTotalProfit()+" (average profit: "+(myAgent.getTotalProfit() / (double)numActions)+")");
-		}
-		numActions++;
+			if (numActions >= 1) {
+				System.out.println("The total profit after "+numActions+" actions is "+myAgent.getTotalProfit()+" (average profit: "+(myAgent.getTotalProfit() / (double)numActions)+")");
+			}
+			numActions++;
 		
-		return action;
+			return action;
+		}
 	}
 	
 	public double [][] rewardMatrix(){
@@ -103,68 +150,61 @@ public class ReactiveTemplate implements ReactiveBehavior {
 		Cities = myTopology.cities();
 		int size = myTopology.size();
 		double sum = 0;
-		double min1 = 0;
-		double sum1 =0;
-		double min2 = 0;
-		double sum2 =0;
+		double min = 0;
+		double []norm = new double [size];
+		int sizeNeighbors = 0;
+	
 		double [][][]matrix = new double [size][2][size];
-		double []norm1 = new double [size];
-		double []norm2 = new double [size];
-		
-		
+
 		for (int i=0; i<size; i++) {
+			
+			sizeNeighbors = Cities.get(i).neighbors().size();
 			for (int j=0; j<2; j++) {
 				for (int k = 0; k<size; k++) {
 					
 					matrix[i][0][k] = myDistribution.probability(Cities.get(i), Cities.get(k));
+					
+					
 					if(!(Cities.get(i).hasNeighbor(Cities.get(k)))) {
 						matrix[i][1][k] = 0;
 					}
 					else {
-						for (int n=0; n<size; n++) {
-							sum += myDistribution.probability(Cities.get(k), Cities.get(n));
+						matrix[i][1][k] = 1/sizeNeighbors;
 							
-						}
-							
-						matrix[i][1][k] = sum;
-						
-						
-						
 					}
-					sum = 0;
 				}
-				
+					
 			}
-			//add min-max normalization between 0 and 1 
-			norm1 = matrix[i][0];
-			norm2 = matrix[i][1];
-			min1 =Arrays.stream(norm1).min().getAsDouble();
-			sum1 =Arrays.stream(norm1).sum();
-			min2 =Arrays.stream(norm2).min().getAsDouble();
-			sum2 =Arrays.stream(norm2).sum();
+			for (int l=0; l<size; l++) {
+				norm[l] = matrix[i][0][l];
+			}
+			min =Arrays.stream(norm).min().getAsDouble();
+			sum =Arrays.stream(norm).sum();
 			for (int k = 0; k<size; k++) {
-				norm1[k] = (norm1[k]- min1)/(sum1-min1);
-				norm2[k] = (norm2[k]- min2)/(sum2-min2);
+				norm[k] = (norm[k]- min)/(sum-min);
 			}
-			matrix[i][0] = norm1;
-			matrix[i][1] = norm2;
+			for (int m = 0; m<size; m++) {
+				matrix[i][0][m] = norm[m];
+			}
+				
 		}
-		
-	
-	
+
 		return matrix;
 		
 	}
 	
 	public double [] valueFunction() {
-		double epsilon = 100;
+		int niter =0;
+		double epsilon = 0.01;
 		int size = myTopology.size();
 		double [] old_value = new double [size];
+		double [] diff = new double [size];
 		for (int i = 0; i<size; i++) {
-			old_value[i] = rewardMatrix[i][0];
+			old_value[i] = 1;
+			diff[i] = 10000;
 		}
 		double [] new_value = new double [size];
-		double [] diff = old_value;
+		
 		double [][] qArray = new double[size][2];
 		while (Arrays.stream(diff).max().getAsDouble() > epsilon) {
 			for (int s = 0; s<9; s++) {
@@ -172,16 +212,24 @@ public class ReactiveTemplate implements ReactiveBehavior {
 					qArray[s][a] = rewardMatrix[s][a];
 					for (int s_ = 0; s_<9; s_++) {
 						qArray[s][a] += pPickup*transitionMatrix[s][a][s_]*old_value[s_];
+						
 					}
 				}
+				//System.out.println("test   "+Arrays.stream(qArray[s]).max().getAsDouble());
 				new_value[s] = Arrays.stream(qArray[s]).max().getAsDouble();
 			}
 			for (int i=0; i<size; i++) {
+				//System.out.println(i+"  old " +old_value[i]+"  new " +new_value[i]);
 				diff[i] = Math.abs(new_value[i] - old_value[i]);
 			}
-			old_value = new_value;
+			for (int i = 0; i<size; i++) {
+				old_value[i] = new_value[i];
+			}
+
+			niter++;
 		}
-		System.out.println(Arrays.toString(new_value));
+		System.out.println("V(s) converge after " + niter + " iterations");
+		System.out.println("V(s) = " + Arrays.toString(new_value));
 		return new_value;
 	}
 		
