@@ -40,7 +40,7 @@ public class ReactiveTemplate implements ReactiveBehavior {
 				0.95);
 
 		this.random = new Random();
-		this.pPickup = 0.95;
+		this.pPickup = discount;
 		this.cost_per_km = 5;
 		this.numActions = 0;
 		this.myAgent = agent;
@@ -102,8 +102,6 @@ public class ReactiveTemplate implements ReactiveBehavior {
 						policy[a] += pPickup*transitionMatrix[currentCity.id][a][s_]*valueFunction[currentCity.id];
 					}
 				}
-				System.out.println(policy[0]);
-				System.out.println(policy[1]);
 				if (policy[0]>policy[1]) {
 					action = new Pickup(availableTask);
 				}
@@ -149,10 +147,7 @@ public class ReactiveTemplate implements ReactiveBehavior {
 		List<City> Cities;	
 		Cities = myTopology.cities();
 		int size = myTopology.size();
-		double sum = 0;
-		double min = 0;
-		double []norm = new double [size];
-		int sizeNeighbors = 0;
+		double sizeNeighbors = 0;
 	
 		double [][][]matrix = new double [size][2][size];
 
@@ -174,17 +169,6 @@ public class ReactiveTemplate implements ReactiveBehavior {
 					}
 				}
 					
-			}
-			for (int l=0; l<size; l++) {
-				norm[l] = matrix[i][0][l];
-			}
-			min =Arrays.stream(norm).min().getAsDouble();
-			sum =Arrays.stream(norm).sum();
-			for (int k = 0; k<size; k++) {
-				norm[k] = (norm[k]- min)/(sum-min);
-			}
-			for (int m = 0; m<size; m++) {
-				matrix[i][0][m] = norm[m];
 			}
 				
 		}
