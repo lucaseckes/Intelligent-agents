@@ -27,6 +27,8 @@ public class ReactiveTemplate implements ReactiveBehavior {
 	private double [][] rewardMatrix;
 	private double [][][] transitionMatrix;
 	private double [] valueFunction;
+	private int nb_states;
+	private int nb_actions;
 
 	@Override
 	public void setup(Topology topology, TaskDistribution td, Agent agent) {
@@ -46,6 +48,8 @@ public class ReactiveTemplate implements ReactiveBehavior {
 		this.rewardMatrix = rewardMatrix();
 		this.transitionMatrix = transitionMatrix();
 		this.valueFunction = valueFunction();
+		this.nb_states = myTopology.size();
+		this.nb_actions = 2;
 	}
 
 	@Override
@@ -54,9 +58,9 @@ public class ReactiveTemplate implements ReactiveBehavior {
 		double [] policy = new double [2];
 		if (availableTask != null ) {
 			City currentCity = vehicle.getCurrentCity();
-			for(int a = 0; a<2; a++) {
+			for(int a = 0; a<nb_actions; a++) {
 				policy[a] = rewardMatrix[currentCity.id][a];
-				for (int s_ = 0; s_<9; s_++) {
+				for (int s_ = 0; s_<nb_states; s_++) {
 					policy[a] += pPickup*transitionMatrix[currentCity.id][a][s_]*valueFunction[currentCity.id];
 				}
 			}
@@ -80,12 +84,12 @@ public class ReactiveTemplate implements ReactiveBehavior {
 	}
 	
 	public double [][] rewardMatrix(){
-		double [][] matrix = new double[9][2];
+		double [][] matrix = new double[nb_states][nb_actions];
 		List<City> Cities = myTopology.cities(); //The list of cities are given by ascending ID number
 	
-		for (int s=0; s<9; s++) {
+		for (int s=0; s<nb_states; s++) {
 			List<City> Neighbors = Cities.get(s).neighbors();
-			for (int j = 0; j<9; j++) {
+			for (int j = 0; j<nb_states; j++) {
 				//Calculate the average reward of taking the pickup action in this city
 				matrix[s][0] += myDistribution.probability(Cities.get(s), Cities.get(j))*(myDistribution.reward(Cities.get(s), Cities.get(j))-cost_per_km*Cities.get(s).distanceTo(Cities.get(j))); 
 			}
@@ -101,32 +105,31 @@ public class ReactiveTemplate implements ReactiveBehavior {
 	public double [][][] transitionMatrix(){
 		List<City> Cities;	
 		Cities = myTopology.cities();
-		int size = myTopology.size();
 		double sum = 0;
 		double min1 = 0;
 		double sum1 =0;
 		double min2 = 0;
 		double sum2 =0;
-		double [][][]matrix = new double [size][2][size];
-		double []norm1 = new double [size];
-		double []norm2 = new double [size];
+		double [][][]matrix = new double [nb_states][nb_actions][nb_states];
+		double []norm1 = new double [nb_states];
+		double []norm2 = new double [nb_states];
 		
 		
-		for (int i=0; i<size; i++) {
-			for (int j=0; j<2; j++) {
-				for (int k = 0; k<size; k++) {
+		for (int i=0; i<nb_states; i++) {
+			for (int j=0; j<nb_actions; j++) {
+				for (int k = 0; k<nb_states; k++) {
 					
 					matrix[i][0][k] = myDistribution.probability(Cities.get(i), Cities.get(k));
 					if(!(Cities.get(i).hasNeighbor(Cities.get(k)))) {
 						matrix[i][1][k] = 0;
 					}
 					else {
-						for (int n=0; n<size; n++) {
+						for (int n=0; n<nb_states; n++) {
 							sum += myDistribution.probability(Cities.get(k), Cities.get(n));
 							
 						}
 							
-						matrix[i][1][k] = sum;
+						matrix[i][1][k] = 1;
 						
 						
 						
@@ -142,7 +145,7 @@ public class ReactiveTemplate implements ReactiveBehavior {
 			sum1 =Arrays.stream(norm1).sum();
 			min2 =Arrays.stream(norm2).min().getAsDouble();
 			sum2 =Arrays.stream(norm2).sum();
-			for (int k = 0; k<size; k++) {
+			for (int k = 0; k<nb_states; k++) {
 				norm1[k] = (norm1[k]- min1)/(sum1-min1);
 				norm2[k] = (norm2[k]- min2)/(sum2-min2);
 			}
@@ -157,19 +160,19 @@ public class ReactiveTemplate implements ReactiveBehavior {
 	}
 	
 	public double [] valueFunction() {
-		double epsilon = 100;
-		double [] old_value = new double [9];
-		for (int i = 0; i<9; i++) {
+		double epsilon = 1;
+		double [] old_value = new double [nb_states];
+		for (int i = 0; i<nb_states; i++) {
 			old_value[i] = rewardMatrix[i][0];
 		}
-		double [] new_value = new double [9];
+		double [] new_value = new double [nb_states];
 		double [] diff = old_value;
-		double [][] qArray = new double[9][2];
+		double [][] qArray = new double[nb_states][nb_actions];
 		while (Arrays.stream(diff).max().getAsDouble() > epsilon) {
-			for (int s = 0; s<9; s++) {
-				for (int a = 0; a<2; a++) {
+			for (int s = 0; s<nb_states; s++) {
+				for (int a = 0; a<nb_actions; a++) {
 					qArray[s][a] = rewardMatrix[s][a];
-					for (int s_ = 0; s_<9; s_++) {
+					for (int s_ = 0; s_<nb_states; s_++) {
 						qArray[s][a] += pPickup*transitionMatrix[s][a][s_]*old_value[s_];
 					}
 				}
