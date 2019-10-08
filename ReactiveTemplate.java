@@ -39,23 +39,24 @@ public class ReactiveTemplate implements ReactiveBehavior {
 				0.95);
 
 		this.random = new Random();
-		this.pPickup = 0.95;
-		this.cost_per_km = 5;
+		this.pPickup = discount; //discount factor
+		this.cost_per_km = 5; 
 		this.numActions = 0;
 		this.myAgent = agent;
 		this.myDistribution = td;
 		this.myTopology = topology;
 		this.rewardMatrix = rewardMatrix();
 		this.transitionMatrix = transitionMatrix();
-		this.valueFunction = valueFunction();
+		this.valueFunction = valueFunction(); // V(s)
 		this.nb_states = myTopology.size();
 		this.nb_actions = 2;
 	}
 
 	@Override
 	public Action act(Vehicle vehicle, Task availableTask) {
+		// If there is an pickup task in that city calculate the policy that determine if it is better to do the task or move to another city.
 		Action action;
-		double [] policy = new double [2];
+		double [] policy = new double [nb_actions];
 		if (availableTask != null ) {
 			City currentCity = vehicle.getCurrentCity();
 			for(int a = 0; a<nb_actions; a++) {
@@ -119,7 +120,9 @@ public class ReactiveTemplate implements ReactiveBehavior {
 			for (int j=0; j<nb_actions; j++) {
 				for (int k = 0; k<nb_states; k++) {
 					
+					//When the action is doing the task the probability of next state correspond to the probability of being the delivery state knowing the pickup state.
 					matrix[i][0][k] = myDistribution.probability(Cities.get(i), Cities.get(k));
+					//When the action is not doing the task, the probability is zero if the city is not a neighbor
 					if(!(Cities.get(i).hasNeighbor(Cities.get(k)))) {
 						matrix[i][1][k] = 0;
 					}
@@ -138,7 +141,7 @@ public class ReactiveTemplate implements ReactiveBehavior {
 				}
 				
 			}
-			//add min-max normalization between 0 and 1 
+			//add normalization so that the sum over all final state for one action and one state is one.
 			norm1 = matrix[i][0];
 			norm2 = matrix[i][1];
 			min1 =Arrays.stream(norm1).min().getAsDouble();
@@ -160,7 +163,7 @@ public class ReactiveTemplate implements ReactiveBehavior {
 	}
 	
 	public double [] valueFunction() {
-		double epsilon = 1;
+		double epsilon = 1; //Stopping criterion for the convergence of the value function. max(abs(V'(s)-V(s)))
 		double [] old_value = new double [nb_states];
 		for (int i = 0; i<nb_states; i++) {
 			old_value[i] = rewardMatrix[i][0];
@@ -176,10 +179,10 @@ public class ReactiveTemplate implements ReactiveBehavior {
 						qArray[s][a] += pPickup*transitionMatrix[s][a][s_]*old_value[s_];
 					}
 				}
-				new_value[s] = Arrays.stream(qArray[s]).max().getAsDouble();
+				new_value[s] = Arrays.stream(qArray[s]).max().getAsDouble(); // new_value : V(s), old_value : V'(s)
 			}
 			for (int i=0; i<9; i++) {
-				diff[i] = Math.abs(new_value[i] - old_value[i]);
+				diff[i] = Math.abs(new_value[i] - old_value[i]); // diff represents abs(V'(s)-V(s))
 			}
 			old_value = new_value;
 		}
