@@ -66,6 +66,7 @@ public class DeliberativeTemplate implements DeliberativeBehavior {
 			break;
 		case NAIVE :
 			plan = naivePlan(vehicle, tasks);
+			break;
 		default:
 			throw new AssertionError("Should not happen.");
 		}		
