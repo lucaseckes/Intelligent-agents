@@ -12,6 +12,7 @@ import logist.topology.Topology;
 import logist.topology.Topology.City;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Arrays;
 
 /**
@@ -101,6 +102,7 @@ public class DeliberativeTemplate implements DeliberativeBehavior {
 		return plan;
 	}
 	
+	//Compute the factorial of a positive integer number
 	private int factoriel(int x) {
 		int fact = 1;
 		while (x > 1) {
@@ -110,6 +112,7 @@ public class DeliberativeTemplate implements DeliberativeBehavior {
 		return fact;
 	}
 	
+	//Remove an integer value of a matrix knowing the index
 	private int[] removefromarr(int [] arr, int index) {
 		// Create another array of size one less 
         int[] anotherArray = new int[arr.length - 1]; 
@@ -133,6 +136,7 @@ public class DeliberativeTemplate implements DeliberativeBehavior {
         return anotherArray; 
     } 
 	
+	//Find the index of the minimum value of an ArrayList
 	private int amin(ArrayList<Double> arr) {
 		int idx = 0;
 		double min = arr.get(0);
@@ -144,23 +148,35 @@ public class DeliberativeTemplate implements DeliberativeBehavior {
 		}
 		return idx;
 	}
+	
+	//Allow to return a pair of objects (the matrix of cost and the references list) in the method BFSMatrix
+	class Pair { 
+		ArrayList<Double> matrix;  
+		ArrayList<String> refs;  
+	    Pair(ArrayList<Double> a, ArrayList<String> b) 
+	    { 
+	        matrix = a;
+	        refs = b;
+	    } 
+	} 
 
 	
-	
-	public ArrayList<Double> BFSMatrix(Vehicle vehicle, TaskSet tasks) {
-		ArrayList<Double> matrix = new ArrayList<Double>();
+	//Calculate a matrix of all possibilities with the cost associated to it
+	public Pair BFSMatrix(Vehicle vehicle, TaskSet tasks) {
+		ArrayList<Double> matrix = new ArrayList<Double>(); //The matrix with cost values
 		ArrayList<Double> intermediate_matrix = new ArrayList<Double>();
-		ArrayList<String> references = new ArrayList<String>();
+		ArrayList<String> references = new ArrayList<String>(); //The references corresponding to all the actions made by the agent
 		City current = vehicle.getCurrentCity();
-		double load = vehicle.capacity();
+		double load = vehicle.capacity(); 
 		ArrayList<Integer> current_capacity = new ArrayList<Integer>();
 		ArrayList<TaskSet> current_tasks = new ArrayList<TaskSet>();
 		ArrayList<TaskSet> actions = new ArrayList<TaskSet>();
 		ArrayList<City> states = new ArrayList<City>();
 		
-		int sz = 11;
-		int compt = 1;
+		int sz = 2*tasks.size(); //The depth of the Breadth first search
+		int compt = 1; //the index of the tasks iterated
 			
+		//First level of the Breadth First Search. The branches correspond to all possible tasks
 		for(Task task : tasks) {
 			
 			double cost = current.distanceTo(task.pickupCity);
@@ -178,6 +194,8 @@ public class DeliberativeTemplate implements DeliberativeBehavior {
 
 			compt ++;
 		}
+		
+		//One loop in the while loop represents one level of depthness
 		while (sz>1) {
 			sz --;
 			int node = 0;
@@ -186,34 +204,68 @@ public class DeliberativeTemplate implements DeliberativeBehavior {
 			ArrayList<TaskSet> new_current_tasks = new ArrayList<TaskSet>();
 			ArrayList<City> new_states = new ArrayList<City>();
 			ArrayList<Integer> weights = new ArrayList<Integer>();
-			ArrayList<String> new_references = new ArrayList<String>(); 
+			ArrayList<String> new_references = new ArrayList<String>();
+			//itr represents all the tasks that are not picked up in one particular node
 			for (TaskSet itr : actions) {
-				compt = 1;
+				int has_done = 0;
+				int comptD = 1;
+				ArrayList<Task> has_done_actions = new ArrayList<Task>();
+				//current_tasks represents all the tasks that are picked up but not delivered in a particular node
 				for(Task task : current_tasks.get(node)) {
 					City new_current = states.get(node);
-					double cost = intermediate_matrix.get(node)+ new_current.distanceTo(task.deliveryCity);
-					new_matrix.add(cost);
-					new_states.add(task.deliveryCity);
-					new_actions.add(itr);
+					TaskSet point_actions = itr.copyOf(itr);
+					List<City> path = new_current.pathTo(task.deliveryCity);
 					TaskSet loading = current_tasks.get(node).copyOf(current_tasks.get(node));
-					loading.remove(task);
-					new_current_tasks.add(loading);
-					weights.add(current_capacity.get(node)-task.weight);
-					new_references.add(references.get(node)+"D" + Integer.toString(compt));
+					//Test if one of the task that were not picked up are on the path of the delivery city
+					int comptP = 1;
+					for(Task task_path : itr) {
+						if (path.contains(task_path.pickupCity) & has_done < current_tasks.get(node).size()) {
+							//Test if picking up the task will not exceed the load of the agent
+							int total_weight = current_capacity.get(node) + task_path.weight;
+							if (total_weight < load) {
+								point_actions.remove(task_path);
+								double cost = intermediate_matrix.get(node)+ new_current.distanceTo(task_path.pickupCity);
+								new_matrix.add(cost);
+								new_actions.add(point_actions);
+								new_states.add(task_path.pickupCity);
+								loading.add(task_path);
+								has_done_actions.add(task_path);
+								new_current_tasks.add(loading);
+								weights.add(current_capacity.get(node)+task_path.weight);
+								new_references.add(references.get(node) + "P" + Integer.toString(comptP));
+								has_done ++;
+							}
+						}
+						comptP++;
+					}
+					
+					if (has_done < current_tasks.get(node).size()) {
+						new_actions.add(point_actions);
+						double cost = intermediate_matrix.get(node)+ new_current.distanceTo(task.deliveryCity);
+						new_matrix.add(cost);
+						new_states.add(task.deliveryCity);
+						loading.remove(task);
+						new_current_tasks.add(loading);
+						weights.add(current_capacity.get(node)-task.weight);
+						new_references.add(references.get(node) + "D" + Integer.toString(comptD));
+						comptD++;
+						has_done ++;
+					}
 				}
+				compt = 1;
 				for(Task task : itr) {
 					City new_current = states.get(node);
 					int total_weight = current_capacity.get(node) + task.weight;
-					if (total_weight < load) {
+					if (total_weight < load & has_done_actions.contains(task) == false) {
 						double cost = intermediate_matrix.get(node) + new_current.distanceTo(task.pickupCity);
 						new_matrix.add(cost);
 						new_states.add(task.pickupCity);
 						TaskSet act = itr.copyOf(itr);
 						act.remove(task);
 						new_actions.add(act);
-						TaskSet loading = current_tasks.get(node).copyOf(current_tasks.get(node));
-						loading.add(task);
-						new_current_tasks.add(loading);
+						TaskSet loading_pick = current_tasks.get(node).copyOf(current_tasks.get(node));
+						loading_pick.add(task);
+						new_current_tasks.add(loading_pick);
 						weights.add(total_weight);
 						new_references.add(references.get(node) + "P" + Integer.toString(compt));
 						compt++;
@@ -230,52 +282,60 @@ public class DeliberativeTemplate implements DeliberativeBehavior {
 			references = new ArrayList<String>(new_references);
 		}
 		
-			
-		System.out.println(references.get(5));
-		
 		matrix = new ArrayList<Double>(intermediate_matrix);
 		
-		return matrix;
+		return new Pair(matrix,references);
 	}
 	
 	private Plan BFSPlan(Vehicle vehicle, TaskSet tasks) {
 		City current = vehicle.getCurrentCity();
 		Plan plan = new Plan(current);
-		ArrayList<Double> tree_matrix = BFSMatrix(vehicle, tasks);
-		System.out.println(tree_matrix.size());
+		Pair tree_matrix = BFSMatrix(vehicle, tasks);
+		System.out.println(tree_matrix.matrix.size());
 		int sz = tasks.size();
-		int[] array_nb = new int[sz];
+		int[] pick_nb = new int[sz];
+		int[] del_nb = new int[sz];
 		for (int i = 0; i < sz; ++i) {
-	        array_nb[i] = i;
+	        pick_nb[i] = i;
+	        del_nb[i] = i;
 	    }
-		int index = amin(tree_matrix);
-		System.out.println("The total distance is " + tree_matrix.get(index) + " km");
-		while (sz > 0) {
-			int task_nb = index/factoriel(sz-1);
-			int real_nb = array_nb[task_nb];
-			int compt = 0;
-			for (Task task : tasks) {
-				if (compt == real_nb) {
-					// move: current city => pickup location
-					for (City city : current.pathTo(task.pickupCity))
-						plan.appendMove(city);
-
-					plan.appendPickup(task);
-
-					// move: pickup location => delivery location
-					for (City city : task.path())
-						plan.appendMove(city);
-
-					plan.appendDelivery(task);
-
-					// set current city
-					current = task.deliveryCity;
+		int index = amin(tree_matrix.matrix);
+		String best_ref = tree_matrix.refs.get(index);
+		System.out.println(best_ref);
+		System.out.println("The total distance is " + tree_matrix.matrix.get(index) + " km");
+		String[] best_arr = best_ref.split("(?<=\\G.)");
+		for (int i = 0; i<best_arr.length; i++) {
+			if (best_arr[i].equals("P") == true) {
+				int compt = 0;
+				for (Task task : tasks) {
+					if (compt == pick_nb[Integer.parseInt(best_arr[i+1])-1]) {
+						// move: current city => pickup location
+						for (City city : current.pathTo(task.pickupCity))
+							plan.appendMove(city);
+						
+						plan.appendPickup(task);
+						current = task.pickupCity;
+					}
+					compt++;
 				}
-				compt ++;
+				pick_nb = removefromarr(pick_nb,Integer.parseInt(best_arr[i+1])-1);
 			}
-			index -= task_nb*factoriel(sz-1);
-			array_nb = removefromarr(array_nb, task_nb);
-			sz --;
+			if (best_arr[i].equals("D") == true) {
+				int compt = 0;
+				for (Task task : tasks) {
+					if (compt == del_nb[Integer.parseInt(best_arr[i+1])-1]) {
+						// move: current city => pickup location
+						for (City city : current.pathTo(task.deliveryCity))
+							plan.appendMove(city);
+						
+						plan.appendDelivery(task);
+						current = task.deliveryCity;
+					}
+					compt++;
+				}
+				del_nb = removefromarr(del_nb,Integer.parseInt(best_arr[i+1])-1);
+			}
+			i++;
 		}
 		
 		return plan;
