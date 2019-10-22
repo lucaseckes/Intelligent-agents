@@ -45,6 +45,7 @@ public class DeliberativeTemplate implements DeliberativeBehavior {
 		
 		// Throws IllegalArgumentException if algorithm is unknown
 		algorithm = Algorithm.valueOf(algorithmName.toUpperCase());
+
 		
 		// ...
 	}
@@ -149,50 +150,88 @@ public class DeliberativeTemplate implements DeliberativeBehavior {
 	public ArrayList<Double> BFSMatrix(Vehicle vehicle, TaskSet tasks) {
 		ArrayList<Double> matrix = new ArrayList<Double>();
 		ArrayList<Double> intermediate_matrix = new ArrayList<Double>();
+		ArrayList<String> references = new ArrayList<String>();
 		City current = vehicle.getCurrentCity();
+		double load = vehicle.capacity();
+		ArrayList<Integer> current_capacity = new ArrayList<Integer>();
+		ArrayList<TaskSet> current_tasks = new ArrayList<TaskSet>();
 		ArrayList<TaskSet> actions = new ArrayList<TaskSet>();
 		ArrayList<City> states = new ArrayList<City>();
 		
-		
-		int sz = tasks.size();
-		int compt = 0;
+		int sz = 11;
+		int compt = 1;
 			
 		for(Task task : tasks) {
 			
-			double cost = current.distanceTo(task.pickupCity) + task.pickupCity.distanceTo(task.deliveryCity);
+			double cost = current.distanceTo(task.pickupCity);
+			current_capacity.add(task.weight);
 			intermediate_matrix.add(cost);
-			states.add(task.deliveryCity);
-			TaskSet act = tasks.copyOf(tasks);
-			act.remove(task);
-			actions.add(act);
+			references.add("P" + Integer.toString(compt));
+			states.add(task.pickupCity);
+			TaskSet other_tasks = tasks.copyOf(tasks);
+			other_tasks.remove(task);
+			actions.add(other_tasks);
+			TaskSet loading = tasks.copyOf(tasks);
+			loading.clear();
+			loading.add(task);
+			current_tasks.add(loading);
 
 			compt ++;
 		}
-		
-		while (sz > 1) {
+		while (sz>1) {
 			sz --;
 			int node = 0;
 			ArrayList<Double> new_matrix = new ArrayList<Double>();
 			ArrayList<TaskSet> new_actions = new ArrayList<TaskSet>();
+			ArrayList<TaskSet> new_current_tasks = new ArrayList<TaskSet>();
 			ArrayList<City> new_states = new ArrayList<City>();
+			ArrayList<Integer> weights = new ArrayList<Integer>();
+			ArrayList<String> new_references = new ArrayList<String>(); 
 			for (TaskSet itr : actions) {
-				int test = 0;
-				for(Task task : itr) {
+				compt = 1;
+				for(Task task : current_tasks.get(node)) {
 					City new_current = states.get(node);
-					double cost = intermediate_matrix.get(node) + new_current.distanceTo(task.pickupCity) + task.pickupCity.distanceTo(task.deliveryCity);
+					double cost = intermediate_matrix.get(node)+ new_current.distanceTo(task.deliveryCity);
 					new_matrix.add(cost);
 					new_states.add(task.deliveryCity);
-					TaskSet act = itr.copyOf(itr);
-					act.remove(task);
-					new_actions.add(act);
-					test++;
+					new_actions.add(itr);
+					TaskSet loading = current_tasks.get(node).copyOf(current_tasks.get(node));
+					loading.remove(task);
+					new_current_tasks.add(loading);
+					weights.add(current_capacity.get(node)-task.weight);
+					new_references.add(references.get(node)+"D" + Integer.toString(compt));
+				}
+				for(Task task : itr) {
+					City new_current = states.get(node);
+					int total_weight = current_capacity.get(node) + task.weight;
+					if (total_weight < load) {
+						double cost = intermediate_matrix.get(node) + new_current.distanceTo(task.pickupCity);
+						new_matrix.add(cost);
+						new_states.add(task.pickupCity);
+						TaskSet act = itr.copyOf(itr);
+						act.remove(task);
+						new_actions.add(act);
+						TaskSet loading = current_tasks.get(node).copyOf(current_tasks.get(node));
+						loading.add(task);
+						new_current_tasks.add(loading);
+						weights.add(total_weight);
+						new_references.add(references.get(node) + "P" + Integer.toString(compt));
+						compt++;
+					}
 				}
 				node ++;
 			}
 			intermediate_matrix = new ArrayList<Double>(new_matrix);
+			System.out.println(intermediate_matrix.size());
+			current_tasks = new ArrayList<TaskSet>(new_current_tasks);
 			actions = new ArrayList<TaskSet>(new_actions);
 			states = new ArrayList<City>(new_states);
+			current_capacity = new ArrayList<Integer>(weights);
+			references = new ArrayList<String>(new_references);
 		}
+		
+			
+		System.out.println(references.get(5));
 		
 		matrix = new ArrayList<Double>(intermediate_matrix);
 		
@@ -203,6 +242,7 @@ public class DeliberativeTemplate implements DeliberativeBehavior {
 		City current = vehicle.getCurrentCity();
 		Plan plan = new Plan(current);
 		ArrayList<Double> tree_matrix = BFSMatrix(vehicle, tasks);
+		System.out.println(tree_matrix.size());
 		int sz = tasks.size();
 		int[] array_nb = new int[sz];
 		for (int i = 0; i < sz; ++i) {
