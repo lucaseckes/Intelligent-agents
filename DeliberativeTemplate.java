@@ -60,7 +60,7 @@ public class DeliberativeTemplate implements DeliberativeBehavior {
 		switch (algorithm) {
 		case ASTAR:
 			// ...
-			plan = naivePlan(vehicle, tasks);
+			plan = AstarPlan(vehicle, tasks);
 			break;
 		case BFS:
 			
@@ -148,6 +148,17 @@ public class DeliberativeTemplate implements DeliberativeBehavior {
 		}
 		return idx;
 	}
+	
+	//Function to sum element by element of two arrays
+		private ArrayList<Double> applyOn2Arrays(ArrayList<Double> a, ArrayList<Double> b){
+			
+			ArrayList<Double> c = new ArrayList<Double>();
+			for (int i = 0; i < a.size(); ++i) {
+			    c.add(a.get(i) + b.get(i));
+			}
+			
+			return c;
+		}
 	
 	//Allow to return a pair of objects (the matrix of cost and the references list) in the method BFSMatrix
 	class Pair { 
@@ -274,7 +285,6 @@ public class DeliberativeTemplate implements DeliberativeBehavior {
 				node ++;
 			}
 			intermediate_matrix = new ArrayList<Double>(new_matrix);
-			System.out.println(intermediate_matrix.size());
 			current_tasks = new ArrayList<TaskSet>(new_current_tasks);
 			actions = new ArrayList<TaskSet>(new_actions);
 			states = new ArrayList<City>(new_states);
@@ -290,8 +300,11 @@ public class DeliberativeTemplate implements DeliberativeBehavior {
 	private Plan BFSPlan(Vehicle vehicle, TaskSet tasks) {
 		City current = vehicle.getCurrentCity();
 		Plan plan = new Plan(current);
+		long startTime = System.currentTimeMillis();
 		Pair tree_matrix = BFSMatrix(vehicle, tasks);
-		System.out.println(tree_matrix.matrix.size());
+		long endTime = System.currentTimeMillis();
+		long duration = (endTime - startTime)/1000;
+		System.out.println("The plan was computed in " + duration + " seconds");
 		int sz = tasks.size();
 		int[] pick_nb = new int[sz];
 		int[] del_nb = new int[sz];
@@ -301,7 +314,6 @@ public class DeliberativeTemplate implements DeliberativeBehavior {
 	    }
 		int index = amin(tree_matrix.matrix);
 		String best_ref = tree_matrix.refs.get(index);
-		System.out.println(best_ref);
 		System.out.println("The total distance is " + tree_matrix.matrix.get(index) + " km");
 		String[] best_arr = best_ref.split("(?<=\\G.)");
 		for (int i = 0; i<best_arr.length; i++) {
@@ -338,6 +350,168 @@ public class DeliberativeTemplate implements DeliberativeBehavior {
 			i++;
 		}
 		
+		return plan;
+	}
+	
+public ArrayList<Double> AstarMatrix(Vehicle vehicle, TaskSet tasks, City current) {
+		
+		//cost of best path from node to node 
+		//heuristic estimate function Euclidian or Manhattan distance 
+		//g:distance from start node
+		//h:distance from end node  
+		
+		Plan plan = new Plan(current);
+		double num_cities = 0;
+		double heuristic = Double.POSITIVE_INFINITY;
+		
+		ArrayList<Double> Gn = new ArrayList<Double>();
+		ArrayList<Double> Hn = new ArrayList<Double>();
+		ArrayList<Double> Fn = new ArrayList<Double>();
+		
+		//num_cities = topology.size();
+		
+		for (City city: topology.cities()){
+			
+			//compute the heuristic function
+			//add  function to define minimization between the nearest task and
+			//actual delivery city 
+			
+			for(Task task : tasks) {
+				//Take the nearest task distance 
+				if(city.distanceTo(task.pickupCity)+ task.pickupCity.distanceTo(task.deliveryCity)< heuristic) {
+					
+					heuristic = city.distanceTo(task.pickupCity) +  task.pickupCity.distanceTo(task.deliveryCity);
+				}
+			}
+			if(!(taskInCity(city, tasks)))
+				heuristic = Double.POSITIVE_INFINITY;
+			
+			Hn.add(heuristic);
+			heuristic = Double.POSITIVE_INFINITY;
+			
+			//compute g(n)
+			//distance from start city (current) to each city in the map
+			Gn.add(city.distanceTo(current));
+
+		}
+		
+		//Fn = Hn + Gn
+		Fn = applyOn2Arrays(Hn, Gn);
+		
+		
+		return Fn;
+	}
+	
+	//function that returns if there is a task in a given city 
+	private Boolean taskInCity(City city, TaskSet tasks) {
+		Boolean bool = false;
+		for(Task task : tasks) {
+			if(task.pickupCity == city)
+				bool = true;
+		}
+		return bool;
+	}
+	
+	//function that returns if a given city is a delivery city or not 
+	private Boolean deliveryCity(City city, TaskSet tasks) {
+		Boolean bool = false;
+		for(Task task : tasks) {
+			if(task.deliveryCity == city)
+				bool = true;
+		}
+		return bool;
+	}
+	
+	private Boolean availableTask(Task task, TaskSet act) {
+		Boolean bool = false;
+		for(Task task_ : act) {
+			if(task_ == task)
+				bool = true;
+		}
+		return bool;
+	}
+	
+	
+	private Plan AstarPlan(Vehicle vehicle, TaskSet tasks) {
+		
+		int test = 0;
+		int num_tasks = 0;
+		City current = vehicle.getCurrentCity();
+		Plan plan = new Plan(current);
+		//ArrayList<City> deliveryCities = new ArrayList<City>();
+		
+		double distance = 0;
+		TaskSet act = tasks.copyOf(tasks);
+		
+		ArrayList<Double> Fn = AstarMatrix(vehicle, tasks, current);
+		ArrayList<Task> deliveryTasks = new ArrayList<Task>();
+		int index = amin(Fn);
+		City goal_city = topology.cities().get(index);
+		int sz = 2*tasks.size();
+		//int[] array_nb = new int[sz];
+		//while(!(act.isEmpty()))
+		while(sz > 1){
+			for (Task task : tasks) {
+				
+				if ((task.pickupCity == goal_city)&(availableTask(task, act))){
+					distance += current.distanceTo(task.pickupCity);
+					
+					//deliveryCities.add(task.deliveryCity);
+					deliveryTasks.add(task);
+					ArrayList<Task> new_deliveryTasks = new ArrayList<Task>(deliveryTasks);
+					
+					// move: current city => pickup location
+					for (City city : current.pathTo(task.pickupCity)) {
+						plan.appendMove(city);
+						for(Task del_task : deliveryTasks) {
+							if (del_task.deliveryCity == city) {
+								plan.appendDelivery(del_task);
+								System.out.println("Deliver the task : " + del_task);
+								new_deliveryTasks.remove(del_task);
+							}
+						}
+					}
+					
+					plan.appendPickup(task);
+					System.out.println("Pickup the task : " + task);
+					
+					deliveryTasks = new ArrayList<Task>(new_deliveryTasks);
+
+					// set current city
+					current = task.pickupCity;
+					
+					
+					act.remove(task);
+					sz--;
+					num_tasks++;
+					
+				}
+			}
+			if(act.isEmpty() == true) {
+				for(Task del_task : deliveryTasks) {
+					distance += current.distanceTo(del_task.deliveryCity);
+					for (City city : current.pathTo(del_task.deliveryCity)) {
+						plan.appendMove(city);
+					}
+					plan.appendDelivery(del_task);
+					System.out.println("Deliver the task : " + del_task);
+					// set current city
+					current = del_task.deliveryCity;
+					sz--;
+				}
+			}
+			num_tasks = 0;
+			//tasks.remove(task_);
+			goal_city = current;
+			// if there is no task in current city 
+			if(!(taskInCity(goal_city, act))){
+				Fn = AstarMatrix(vehicle, act, current);
+				index = amin(Fn);
+				goal_city = topology.cities().get(index);
+				
+			}
+		}
+		System.out.println("The total distance is " + distance + " km");
 		return plan;
 	}
 	
