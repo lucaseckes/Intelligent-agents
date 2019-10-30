@@ -123,11 +123,13 @@ public class CentralizedTemplate implements CentralizedBehavior {
     }
     
     class Variables {
+    	public String[] index;
     	public String[] NextTasks;
     	public int[] time;
     	public int[] vehicles;
     	
-    	Variables(String[] next, int[] Time, int[] Vehicles) {
+    	Variables(String[] idx, String[] next, int[] Time, int[] Vehicles) {
+    		this.index = idx;
     		this.NextTasks = next;
     		this.time = Time;
     		this.vehicles = Vehicles;
@@ -185,6 +187,8 @@ public class CentralizedTemplate implements CentralizedBehavior {
     	String [] nextTasks = new String[2*sz_t + sz_v];
     	int [] time = new int[2*sz_t];
     	int [] vehicle = new int[2*sz_t];
+    	String [] index = new String[2*sz_t + sz_v];
+    	int size_index = index.length;
     	
     	for (int i = 0; i<sz_t-1; i++) {
     		nextTasks[i] = "D" + Integer.toString(i+1); //After the pickup, the vehicle directly make the delivery
@@ -200,7 +204,20 @@ public class CentralizedTemplate implements CentralizedBehavior {
     		nextTasks[2*sz_t + j] = "NULL";
     	}
     	nextTasks[2*sz_t] = "P1"; //The first task of the vehicle is P1
-    	Variables vars = new Variables(nextTasks, time, vehicle);
+    	//construct the index 
+    	for(int i=0; i<sz_t;i++) {
+    		index[i] = "P" + Integer.toString(i+1);
+    		index[i+sz_t] = "D" + Integer.toString(i+1);
+    	}
+    	int j = 1;
+    	for(int i=2*sz_t; i<size_index;i++) {
+    		
+    		index[i] = "v" + Integer.toString(j);
+    		j+=1;
+    	}
+    	
+    	System.out.println("Indexes: " + Arrays.toString(index));
+    	Variables vars = new Variables(index, nextTasks, time, vehicle);
     	return vars;
     }
 
@@ -217,6 +234,10 @@ public class CentralizedTemplate implements CentralizedBehavior {
     }
     
     private Variables UpdateTime (Variables vars, Vehicle vehicle1) {
-    	String task = vars.NextTasks()
+    	int sz_t = vars.time.length /2;
+    	String task = vars.NextTasks[2*sz_t + vehicle1.id()]; //ti =AnextTask(vi)
+    	if (task != "NULL") {
+    		vars.time[task] = 1;
+    	}
     }
 }
