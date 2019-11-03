@@ -5,6 +5,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
+import java.util.stream.Collectors;
+
 import logist.LogistSettings;
 import java.io.File;
 
@@ -66,18 +68,17 @@ public class CentralizedTemplate implements CentralizedBehavior {
         Plan planVehicle1 = naivePlan(vehicles.get(0), tasks);
 
         List<Plan> plans = new ArrayList<Plan>();
-        Variables vars = SelectInitialSolution(vehicles, tasks);
-        Variables vars2 = ChangingVehicle(vars, vehicles.get(0), vehicles.get(1));
-        Variables vars3 = ChangingTaskOrder(vars2, vehicles.get(0), 1, 3);
-        System.out.println(Arrays.toString(vars2.NextTasks));
-        System.out.println(Arrays.toString(vars3.NextTasks));
+        Variables choice = StochasticLocalSearch(vehicles, tasks);
+        System.out.println("choice: "+ Arrays.toString(choice.NextTasks));
+        System.out.println("The total distance is : " + CalculateCost(vehicles, tasks, choice) + " km");
+        
         int compt = 0;
         while (plans.size() < vehicles.size()) {
-        	Plan planvehicle = VariablesToPlan(vehicles.get(compt), compt, tasks, vars2);
+        	Plan planvehicle = VariablesToPlan(vehicles.get(compt), compt, tasks, choice);
             plans.add(planvehicle);
             compt++;
         }
-        Boolean b = Constraints(vehicles,  tasks, vars2);
+        Boolean b = Constraints(vehicles,  tasks, choice);
         System.out.println("Constraints are satisfied ? " + b);
         
         long time_end = System.currentTimeMillis();
@@ -85,6 +86,19 @@ public class CentralizedTemplate implements CentralizedBehavior {
         System.out.println("The plan was generated in " + duration + " milliseconds.");
         
         return plans;
+    }
+    
+    private Variables StochasticLocalSearch(List<Vehicle> vehicles, TaskSet tasks) {
+    	Variables vars = SelectInitialSolution(vehicles, tasks);
+    	int count = 0;
+    	do {
+    		Variables old = new Variables(vars.index, vars.NextTasks, vars.time, vars.vehicles);
+    		ArrayList<Variables> neigh = ChooseNeighbours(old, tasks, vehicles);
+    		vars = LocalChoice(neigh, vehicles, tasks);
+    		System.out.println("Cycle : " + count);
+    		count ++;
+    	} while(count<1000);
+    	return vars;
     }
 
     private Plan naivePlan(Vehicle vehicle, TaskSet tasks) {
@@ -124,6 +138,20 @@ public class CentralizedTemplate implements CentralizedBehavior {
     		}
     	}
     	return new_str;
+    }
+    
+  //Method to change the string value of an array knowing the index idx by the string word
+    private int[] ChangeFromArrayInt(int[] arr, int idx, int number) {
+    	int [] new_arr = new int[arr.length];
+    	for (int i = 0; i<arr.length; i++) {
+    		if (i == idx) {
+    			new_arr[i] = number;
+    		}
+    		else {
+    			new_arr[i] = arr[i];
+    		}
+    	}
+    	return new_arr;
     }
     
  // Linear-search function to find the index of an element 
@@ -211,6 +239,49 @@ public class CentralizedTemplate implements CentralizedBehavior {
         return plan;
     }
     
+    private double CalculateCost(List<Vehicle> vehicles, TaskSet tasks, Variables vars) {
+    	double cost = 0;
+    	for (int i = 0; i<vehicles.size(); i++) {
+    		Vehicle vehicle = vehicles.get(i);
+    		City current = vehicle.getCurrentCity();
+    		int sz_t = tasks.size(); // size of tasks
+    		String first_task = vars.NextTasks[2*sz_t + i]; //The first task of the vehicle
+    		if (first_task.equals("NULL")){
+    			cost = 0;
+    		}
+    		while (first_task != "NULL") {
+    			// Case for a Pickup action
+    			if (first_task.split("(?<=\\G.)")[0].equals("P") == true) {
+    				int task_nb = Integer.parseInt(first_task.replace(first_task.split("(?<=\\G.)")[0], "")); //The index of the pickup action
+    				int compt = 1;
+    				for (Task task : tasks) {
+    					if(compt == task_nb) { //Pickup the task
+    						cost += current.distanceTo(task.pickupCity);
+    						current = task.pickupCity;
+    					}
+    					compt ++;
+    				}
+    				first_task = vars.NextTasks[task_nb-1]; // The next task after finishing the current action
+    			}
+    			// Case for a delivery action
+    			else if (first_task.split("(?<=\\G.)")[0].equals("D") == true) {
+    				int task_nb = Integer.parseInt(first_task.replace(first_task.split("(?<=\\G.)")[0], ""));
+    				int compt = 1;
+    				for (Task task : tasks) {
+    					if(compt == task_nb) { //Deliver the task
+    						cost += current.distanceTo(task.deliveryCity);
+    						current = task.deliveryCity;
+    					}
+    					compt ++;
+    				}
+    				first_task = vars.NextTasks[sz_t + task_nb - 1]; // The next task after finishing the current action
+    			}
+    		}
+    		return cost;
+    	}
+    	return cost;
+    }
+    
     private boolean check(String[] arr, String toCheckValue) 
     { 
         // check if the specified element 
@@ -251,15 +322,15 @@ public class CentralizedTemplate implements CentralizedBehavior {
      	for(int i=0; i<size_index; i++) {
      		if(vars.index[i]==vars.NextTasks[i]) {
      			Bool = false;
-     			System.out.println("loop 1");
-     			System.out.println("Warning: nextTask(t) = t");
+     			//System.out.println("loop 1");
+     			//System.out.println("Warning: nextTask(t) = t");
      		}	
      	}
 
-      	//vehicles.stream().map(v -> v.getCurrentTasks()
-     			//.stream().map(t->t.path()
-     			//.stream().filter(p->p.name=="Bourdo")))
-     			//.collect(Collectors.toList());
+      	vehicles.stream().map(v -> v.getCurrentTasks()
+     			.stream().map(t->t.path()
+     			.stream().filter(p->p.name=="Bourdo")))
+     			.collect(Collectors.toList());
 
       	//nextTask(vk) = tj ⇒ time(tj) = 1:
      	for(int i=0; i<num_vehicles; i++) {
@@ -269,8 +340,8 @@ public class CentralizedTemplate implements CentralizedBehavior {
      			if(vars.time[index_]!=1) {
 
       				Bool = false;
-     				System.out.println("loop 2");
-     				System.out.println("Warning: nextTask(vk) = tj !⇒ time(tj) = 1");
+     				//System.out.println("loop 2");
+     				//System.out.println("Warning: nextTask(vk) = tj !⇒ time(tj) = 1");
      			}	
      	}
 
@@ -284,8 +355,8 @@ public class CentralizedTemplate implements CentralizedBehavior {
      			if(index_2!=-1)
      				if((vars.time[index_2]!=vars.time[index_]+1)||(vars.vehicles[index_]!=vars.vehicles[index_2])) {
      					Bool = false;
-     					System.out.println("loop 3");
-     					System.out.println("Warning: nextTask(ti) = tj !⇒ time(tj) = time(ti) + 1 or nextTask(ti) = tj !⇒ vehicle(tj) = vehicle(ti) ");
+     					//System.out.println("loop 3");
+     					//System.out.println("Warning: nextTask(ti) = tj !⇒ time(tj) = time(ti) + 1 or nextTask(ti) = tj !⇒ vehicle(tj) = vehicle(ti) ");
      					//System.out.println("indexes "+index_ +" "+index_2);
      					//System.out.println("tasks "+task+" "+task2+" times "+vars.time[index_]+" "+vars.time[index_2]);
      					//System.out.println("vehicles "+vars.vehicles[index_]+" "+vars.vehicles[index_2]);
@@ -300,8 +371,8 @@ public class CentralizedTemplate implements CentralizedBehavior {
      		if(index_!=-1)
      			if(vars.vehicles[index_]!=i+1) {
      				Bool = false;
-     				System.out.println("loop 4");
-     				System.out.println("Warning: nextTask(vk) = tj !⇒ vehicle(tj) = vk");
+     				//System.out.println("loop 4");
+     				//System.out.println("Warning: nextTask(vk) = tj !⇒ vehicle(tj) = vk");
      			}
 
       	}
@@ -314,22 +385,22 @@ public class CentralizedTemplate implements CentralizedBehavior {
      	for(int i=0; i<size_next; i++) {
      		if(!(check(values, vars.NextTasks[i]))) {
      			Bool = false;
-     			System.out.println("loop 5");
-     			System.out.println("Warning: ");
+     			//System.out.println("loop 5");
+     			//System.out.println("Warning: ");
      		}
 
       	}
      	if(occurence(vars.NextTasks, "NULL")!=num_vehicles) {
      		Bool = false;
-     		System.out.println("loop 6");
-     		System.out.println("Warning: ");
+     		//System.out.println("loop 6");
+     		//System.out.println("Warning: ");
      	}
 
       	//first task of vehicle must be different from a delivery action
      	for(int i=2*sz_t; i<size_index; i++) {
      		if(vars.NextTasks[i].split("(?<=\\G.)")[0].equals("D")) {
-     			System.out.println("loop 7");
-     			System.out.println("Warning: first task of vehicle must be different from a delivery action");
+     			//System.out.println("loop 7");
+     			//System.out.println("Warning: first task of vehicle must be different from a delivery action");
      			Bool = false;
      		}	
      	}
@@ -347,8 +418,8 @@ public class CentralizedTemplate implements CentralizedBehavior {
              			if (task_.split("(?<=\\G.)")[0].equals("P"))
              				load[i] += task.weight;
              				if(current_vehicle.capacity() < load[i]) {
-             					System.out.println("for loop 8");
-             					System.out.println("Warning: Vehicle "+i+" doesnt have capacity to take the task");
+             					//System.out.println("for loop 8");
+             					//System.out.println("Warning: Vehicle "+i+" doesnt have capacity to take the task");
              					Bool = false;
              				}
 
@@ -372,11 +443,19 @@ public class CentralizedTemplate implements CentralizedBehavior {
      	//if vehicle(Pi) = vk ⇒ vehicle(Di) = vk 
      	for(int i=0; i<sz_t; i++) {
      		if(vars.vehicles[i]!=vars.vehicles[i+sz_t]) {
-     			System.out.println("for loop 9");
-     			System.out.println("Warning: The vehicle that picks up a task must deliver it");
+     			//System.out.println("for loop 9");
+     			//System.out.println("Warning: The vehicle that picks up a task must deliver it");
      			Bool = false;
      		}
      	}
+     	
+     	for(int i=0; i<sz_t; i++) {
+    		if(vars.time[i]>vars.time[i+sz_t]) {
+    			//System.out.println("for loop 10");
+    			//System.out.println("Warning: A delivery action must come after a pickup action");
+    			Bool = false;
+    		}
+    	}
      	return Bool;
      }
     
@@ -425,24 +504,23 @@ public class CentralizedTemplate implements CentralizedBehavior {
     	return vars;
     }
     
-    private ArrayList<Variables> ChooseNeighbors (Variables vars, TaskSet tasks, List<Vehicle> vehicles) {
+    private ArrayList<Variables> ChooseNeighbours (Variables vars, TaskSet tasks, List<Vehicle> vehicles) {
     	ArrayList<Variables> N = new ArrayList<Variables>(); //N = {}
     	Vehicle vehicle1 = vehicles.get(0);
     	// vi = random(v1..vNV ) such that Aold(nextTask(vi )) != NULL
     	do {
     		int rand = Math.toIntExact(Math.round(Math.random()*3));
     		vehicle1 = vehicles.get(rand);
-    	} while (vars.NextTasks[findIndex(vars.index, "v" + Integer.toString(vehicle1.id()+1))] != "NULL");
+    	} while (vars.NextTasks[findIndex(vars.index, "v" + Integer.toString(vehicle1.id()+1))] == "NULL");
     	for (int i = 0; i<4; i++) {
     		Vehicle vehicle2 = vehicles.get(i);
     		if (vehicle1.id() != vehicle2.id()) {
     			int count = 0;
     			Variables neighbors = new Variables(vars.index, vars.NextTasks, vars.time, vars.vehicles);
-    			while(count < 5 && Constraints(vehicles, tasks, neighbors) == false) {
-    				neighbors = ChangingVehicle(vars, vehicle1, vehicle2); //A = ChangingVehicle(Aold, vi, vj )
-    				count++;
-    			}
-    			N.add(neighbors); // N = N ∪ {A}
+    			neighbors = ChangingVehicle(vars, vehicle1, vehicle2); //A = ChangingVehicle(Aold, vi, vj )
+    			if (Constraints(vehicles, tasks, neighbors)) {
+					N.add(neighbors); //N = N ∪ {A}
+				}
     		}
     	}
     	// Applying the Changing task order operator : 
@@ -454,15 +532,14 @@ public class CentralizedTemplate implements CentralizedBehavior {
     		length++;
     	} while(task != "NULL");
     	if (length >= 2) {
-    		for (int tIdx1 = 0; tIdx1<length; tIdx1++) {
+    		for (int tIdx1 = 1; tIdx1<length; tIdx1++) {
     			for (int tIdx2 = tIdx1+1; tIdx2<length; tIdx2 ++) {
     				int count = 0;
     				Variables neighbors = new Variables(vars.index, vars.NextTasks, vars.time, vars.vehicles);
-    				while(count < 5 && Constraints(vehicles, tasks, neighbors) == false) {
-        				neighbors = ChangingTaskOrder(vars, vehicle1, tIdx1, tIdx2); //A = ChangingTaskOrder(Aold, vi, tIdx1, tIdx2)
-        				count++;
-        			}
-    				N.add(neighbors); //N = N ∪ {A}
+        			neighbors = ChangingTaskOrder(vars, vehicle1, tIdx1, tIdx2); //A = ChangingTaskOrder(Aold, vi, tIdx1, tIdx2)
+    				if (Constraints(vehicles, tasks, neighbors)) {
+    					N.add(neighbors); //N = N ∪ {A}
+    				}
     			}
     		}
     	}
@@ -472,21 +549,42 @@ public class CentralizedTemplate implements CentralizedBehavior {
     
     private Variables ChangingVehicle(Variables vars, Vehicle vehicle1, Vehicle vehicle2) {
     	Variables changed = new Variables(vars.index, vars.NextTasks, vars.time, vars.vehicles); //A1 = A
-    	String task = vars.NextTasks[findIndex(vars.index, "v" + Integer.toString(vehicle1.id()+1))]; // t = nextTask(v1)
-    	changed.NextTasks = ChangeFromArray(changed.NextTasks, findIndex(vars.index, "v" + Integer.toString(vehicle1.id()+1)), changed.NextTasks[findIndex(vars.index, task)]); // A1nextTask(v1) =A1nextTask(t)
-    	changed.NextTasks = ChangeFromArray(changed.NextTasks, findIndex(vars.index, task), changed.NextTasks[ findIndex(vars.index, "v" + Integer.toString(vehicle2.id()+1))]); // A1nextTask(t) =A1nextTask(v2)
-    	changed.NextTasks = ChangeFromArray(changed.NextTasks,  findIndex(vars.index, "v" + Integer.toString(vehicle2.id()+1)),  task); // A1nextTask(v2) =t
+    	String picktask = vars.NextTasks[findIndex(vars.index, "v" + Integer.toString(vehicle1.id()+1))]; // t = nextTask(v1)
+    	String nextTask = changed.NextTasks[findIndex(vars.index, picktask)]; //A1nextTask(t)
+    	
+    	//Find the corresponding delivery task of the new first task of vehicle 2
+    	int task_nb = Integer.parseInt(picktask.replace(picktask.split("(?<=\\G.)")[0], ""));
+    	int index = 0;
+    	for (int i = 0; i<vars.NextTasks.length; i++) {
+    		if (vars.NextTasks[i] != "NULL") {
+    			int number = Integer.parseInt(vars.NextTasks[i].replace(vars.NextTasks[i].split("(?<=\\G.)")[0], ""));
+    			if (number == task_nb && vars.NextTasks[i].split("(?<=\\G.)")[0].equals("D")) {
+    				index = i;
+    			}
+    		}
+    	}
+    	
+    	//tpre is the action before the selected delivery and tpost the action after
+    	
+    	String tpre = vars.index[index];
+    	String deltask = changed.NextTasks[findIndex(vars.index, tpre)];
+    	String tpost =  changed.NextTasks[findIndex(vars.index, deltask)];
+    	
+    	changed.NextTasks = ChangeFromArray(changed.NextTasks, findIndex(vars.index, "v" + Integer.toString(vehicle1.id()+1)), changed.NextTasks[findIndex(vars.index, nextTask)]); // A1nextTask(v1) =A1nextTask(nexttask)
+    	changed.NextTasks = ChangeFromArray(changed.NextTasks, findIndex(vars.index, deltask), changed.NextTasks[ findIndex(vars.index, "v" + Integer.toString(vehicle2.id()+1))]); // A1nextTask(deltask) =A1nextTask(v2)
+    	changed.NextTasks = ChangeFromArray(changed.NextTasks,  findIndex(vars.index, "v" + Integer.toString(vehicle2.id()+1)),  picktask); // A1nextTask(v2) =picktask
+    	changed.NextTasks = ChangeFromArray(changed.NextTasks,  findIndex(vars.index, picktask),  deltask); // A1nextTask(picktask) =deltask
     	changed = UpdateTime(changed, vehicle1);
     	changed = UpdateTime(changed, vehicle2);
-    	changed.vehicles[findIndex(vars.index, task)] = vehicle2.id()+1; //A1vehicle(t) = v2
+    	changed.vehicles = ChangeFromArrayInt(changed.vehicles, findIndex(vars.index, picktask), vehicle2.id()+1); //A1vehicle(picktask) = v2
+    	changed.vehicles = ChangeFromArrayInt(changed.vehicles, findIndex(vars.index, deltask), vehicle2.id()+1); //A1vehicle(deltask) = v2
     	return changed;
     }
     
     private Variables ChangingTaskOrder(Variables vars, Vehicle vehicle, int tidx1, int tidx2) {
     	Variables changed = new Variables(vars.index, vars.NextTasks, vars.time, vars.vehicles); //A1 = A
     	String tPre1 = "v" + Integer.toString(vehicle.id()+1);
-    	String task1 = changed.NextTasks[findIndex(vars.index, tPre1)]; //t1 = A1nextT ask(tP re1 ) // task1
-    	System.out.println(task1);
+    	String task1 = vars.NextTasks[findIndex(vars.index, tPre1)]; //t1 = A1nextT ask(tP re1 ) // task1
     	int count = 1;
     	while (count < tidx1) {
     		String replace = task1;
@@ -522,19 +620,33 @@ public class CentralizedTemplate implements CentralizedBehavior {
     	return changed;
     }
     
+    private Variables LocalChoice (ArrayList<Variables> neighbors_vars, List<Vehicle> vehicles, TaskSet tasks) {
+    	double cost = CalculateCost(vehicles, tasks, neighbors_vars.get(0));
+    	int index = 0;
+    	for (int i= 1; i<neighbors_vars.size(); i++) {
+    		double new_cost = CalculateCost(vehicles, tasks, neighbors_vars.get(i));
+    		if (new_cost < cost) {
+    			cost = new_cost;
+    			index = i;
+    		}
+    	}
+    	return neighbors_vars.get(index);
+    }
+    
     private Variables UpdateTime (Variables vars, Vehicle vehicle1) {
+    	Variables changed = new Variables(vars.index, vars.NextTasks, vars.time, vars.vehicles);
     	String task = vars.NextTasks[findIndex(vars.index, "v" + Integer.toString(vehicle1.id()+1))]; //ti =AnextTask(vi)
     	if (task != "NULL") {
     		vars.time[findIndex(vars.index, task)] = 1;
     		do {
     			String next_task = vars.NextTasks[findIndex(vars.index, task)]; //tj =AnextTask(ti)
     			if (next_task != "NULL") {
-    				vars.time[findIndex(vars.index, next_task)] = vars.time[findIndex(vars.index, task)] + 1; //Atime(tj ) = Atime(ti ) + 1
+    				changed.time = ChangeFromArrayInt(changed.time, findIndex(changed.index, next_task), changed.time[findIndex(changed.index, task)] + 1); //Atime(tj ) = Atime(ti ) + 1
     				String replace = next_task;
     				task = task.replace(task, replace);
     			}
-    		} while(vars.NextTasks[findIndex(vars.index, task)] != "NULL");
+    		} while(changed.NextTasks[findIndex(changed.index, task)] != "NULL");
     	}
-    	return vars;
+    	return changed;
     }
 }
