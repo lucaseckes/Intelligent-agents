@@ -68,7 +68,7 @@ public class CentralizedTemplate implements CentralizedBehavior {
         List<Plan> plans = new ArrayList<Plan>();
         Variables vars = SelectInitialSolution(vehicles, tasks);
         Variables vars2 = ChangingVehicle(vars, vehicles.get(0), vehicles.get(1));
-        Variables vars3 = ChangingTaskOrder(vars, vehicles.get(0), 1, 2);
+        Variables vars3 = ChangingTaskOrder(vars2, vehicles.get(0), 1, 3);
         System.out.println(Arrays.toString(vars2.NextTasks));
         System.out.println(Arrays.toString(vars3.NextTasks));
         int compt = 0;
@@ -239,102 +239,146 @@ public class CentralizedTemplate implements CentralizedBehavior {
     }
     
     private boolean Constraints(List<Vehicle> vehicles, TaskSet tasks, Variables vars) {
-    	
-    	boolean Bool = true; 
-    	int num_vehicles = vehicles.size();
-    	int sz_t = tasks.size();
-    	int size_index = vars.index.length;
-    	int index_ = 0;
-    	int size_next = vars.NextTasks.length; //size of nextTasks
-    	
-    	//check if nextTask(t) != t
-    	for(int i=0; i<size_index; i++) {
-    		if(vars.index[i]==vars.NextTasks[i]) {
-    			Bool = false;
-    			System.out.println("loop 1");
-    			
-    		}
-    			
-    	}
-    	
-    	//nextTask(vk) = tj ⇒ time(tj) = 1:
-    	for(int i=0; i<num_vehicles; i++) {
-    		String task = vars.NextTasks[2*sz_t+i];
-    		index_ = findIndex(vars.index, task);
-    		if(index_!=-1)
-    			if(vars.time[index_]!=1) {
-    				
-    				Bool = false;
-    				System.out.println("loop 2");
-    			}
-    				
-    	}
-    	
-    	//nextTask(ti) = tj ⇒ time(tj) = time(ti) + 1 & nextTask(ti) = tj ⇒ vehicle(tj) = vehicle(ti):
-    	for(int i=0; i<2*sz_t; i++) {
-    		String task = vars.NextTasks[i];
-    		index_ = findIndex(vars.index, task);
-    		if(index_!=-1) {
-    			String task2 = vars.NextTasks[index_];
-    			int index_2 = findIndex(vars.index, task2);
-    			if(index_2!=-1)
-    				if((vars.time[index_2]!=vars.time[index_]+1)||(vars.vehicles[index_]!=vars.vehicles[index_2])) {
-    					Bool = false;
-    					System.out.println("loop 3");
-    					//System.out.println("indexes "+index_ +" "+index_2);
-    					//System.out.println("tasks "+task+" "+task2+" times "+vars.time[index_]+" "+vars.time[index_2]);
-    					//System.out.println("vehicles "+vars.vehicles[index_]+" "+vars.vehicles[index_2]);
-    				}
-    					
-    	
-    		}
-    	}
-    	
-    	//nextTask(vk) = tj ⇒ vehicle(tj) = vk:
-    	for(int i=0; i<num_vehicles; i++) {
-    		String task = vars.NextTasks[2*sz_t+i];
-    		index_ = findIndex(vars.index, task);
-    		if(index_!=-1)
-    			if(vars.vehicles[index_]!=i+1) {
-    				Bool = false;
-    				System.out.println("loop 4");
-    			}
-    				
-    	}
-    	
-    	//all tasks must be delivered: the set of values of the variables in the
-    	//nextTask array must be equal to the set of tasks T plus NV times the
-    	//value NULL
-    	String[] values = vars.index;
-    	values = ChangeFromArray(values, 2*sz_t, "NULL");
-    	for(int i=0; i<size_next; i++) {
-    		if(!(check(values, vars.NextTasks[i]))) {
-    			Bool = false;
-    			System.out.println("loop 5");
-    		}
-    			
 
-    	}
-    	if(occurence(vars.NextTasks, "NULL")!=num_vehicles) {
-    		Bool = false;
-    		System.out.println("loop 6");
-    	}
-    		
-    	
-    	//first task of vehicle must be different from a delivery action
-    	for(int i=2*sz_t; i<size_index; i++) {
-    		if(vars.NextTasks[i].split("(?<=\\G.)")[0].equals("D")) {
-    			System.out.println("loop 7");
-    			Bool = false;
-    		}
-    			
-    	}
-    	
-    	//if load(ti) > capacity(vk) ⇒ vehicle(ti) 6= vk
-    	
-    		
-    	return Bool;
-    }
+      	boolean Bool = true; 
+     	int num_vehicles = vehicles.size();
+     	int sz_t = tasks.size();
+     	int size_index = vars.index.length;
+     	int index_ = 0;
+     	int size_next = vars.NextTasks.length; //size of nextTasks
+
+      	//check if nextTask(t) != t
+     	for(int i=0; i<size_index; i++) {
+     		if(vars.index[i]==vars.NextTasks[i]) {
+     			Bool = false;
+     			System.out.println("loop 1");
+     			System.out.println("Warning: nextTask(t) = t");
+     		}	
+     	}
+
+      	//vehicles.stream().map(v -> v.getCurrentTasks()
+     			//.stream().map(t->t.path()
+     			//.stream().filter(p->p.name=="Bourdo")))
+     			//.collect(Collectors.toList());
+
+      	//nextTask(vk) = tj ⇒ time(tj) = 1:
+     	for(int i=0; i<num_vehicles; i++) {
+     		String task = vars.NextTasks[2*sz_t+i];
+     		index_ = findIndex(vars.index, task);
+     		if(index_!=-1)
+     			if(vars.time[index_]!=1) {
+
+      				Bool = false;
+     				System.out.println("loop 2");
+     				System.out.println("Warning: nextTask(vk) = tj !⇒ time(tj) = 1");
+     			}	
+     	}
+
+      	//nextTask(ti) = tj ⇒ time(tj) = time(ti) + 1 & nextTask(ti) = tj ⇒ vehicle(tj) = vehicle(ti):
+     	for(int i=0; i<2*sz_t; i++) {
+     		String task = vars.NextTasks[i];
+     		index_ = findIndex(vars.index, task);
+     		if(index_!=-1) {
+     			String task2 = vars.NextTasks[index_];
+     			int index_2 = findIndex(vars.index, task2);
+     			if(index_2!=-1)
+     				if((vars.time[index_2]!=vars.time[index_]+1)||(vars.vehicles[index_]!=vars.vehicles[index_2])) {
+     					Bool = false;
+     					System.out.println("loop 3");
+     					System.out.println("Warning: nextTask(ti) = tj !⇒ time(tj) = time(ti) + 1 or nextTask(ti) = tj !⇒ vehicle(tj) = vehicle(ti) ");
+     					//System.out.println("indexes "+index_ +" "+index_2);
+     					//System.out.println("tasks "+task+" "+task2+" times "+vars.time[index_]+" "+vars.time[index_2]);
+     					//System.out.println("vehicles "+vars.vehicles[index_]+" "+vars.vehicles[index_2]);
+     				}
+     		}
+     	}
+
+      	//nextTask(vk) = tj ⇒ vehicle(tj) = vk:
+     	for(int i=0; i<num_vehicles; i++) {
+     		String task = vars.NextTasks[2*sz_t+i];
+     		index_ = findIndex(vars.index, task);
+     		if(index_!=-1)
+     			if(vars.vehicles[index_]!=i+1) {
+     				Bool = false;
+     				System.out.println("loop 4");
+     				System.out.println("Warning: nextTask(vk) = tj !⇒ vehicle(tj) = vk");
+     			}
+
+      	}
+
+      	//all tasks must be delivered: the set of values of the variables in the
+     	//nextTask array must be equal to the set of tasks T plus NV times the
+     	//value NULL
+     	String[] values = vars.index;
+     	values = ChangeFromArray(values, 2*sz_t, "NULL");
+     	for(int i=0; i<size_next; i++) {
+     		if(!(check(values, vars.NextTasks[i]))) {
+     			Bool = false;
+     			System.out.println("loop 5");
+     			System.out.println("Warning: ");
+     		}
+
+      	}
+     	if(occurence(vars.NextTasks, "NULL")!=num_vehicles) {
+     		Bool = false;
+     		System.out.println("loop 6");
+     		System.out.println("Warning: ");
+     	}
+
+      	//first task of vehicle must be different from a delivery action
+     	for(int i=2*sz_t; i<size_index; i++) {
+     		if(vars.NextTasks[i].split("(?<=\\G.)")[0].equals("D")) {
+     			System.out.println("loop 7");
+     			System.out.println("Warning: first task of vehicle must be different from a delivery action");
+     			Bool = false;
+     		}	
+     	}
+
+      	//if load(ti) > capacity(vk) ⇒ vehicle(ti) = vk
+     	int[] load = new int[4];
+     	for(int i=0; i<num_vehicles; i++) {
+     		Vehicle current_vehicle = vehicles.get(i);
+     		String task_ = vars.NextTasks[2*sz_t+i];
+     		while(!(task_.equals("NULL"))){
+             	int task_nb = Integer.parseInt(task_.replace(task_.split("(?<=\\G.)")[0], ""));
+             	int compt = 1;
+             	for (Task task : tasks) {
+             		if(compt == task_nb) {
+             			if (task_.split("(?<=\\G.)")[0].equals("P"))
+             				load[i] += task.weight;
+             				if(current_vehicle.capacity() < load[i]) {
+             					System.out.println("for loop 8");
+             					System.out.println("Warning: Vehicle "+i+" doesnt have capacity to take the task");
+             					Bool = false;
+             				}
+
+              			if (task_.split("(?<=\\G.)")[0].equals("D"))
+             				load[i] -= task.weight;
+             		}
+             		compt ++;	
+             	}
+
+              	// go to next task of vehicle i
+             	// until this task is not null 
+             	index_ = findIndex(vars.index, task_);
+             	task_ = vars.NextTasks[index_];
+             	//task_ = vars.NextTasks[task_nb-1];
+     			//load[i] = 
+     		}
+     	}
+
+ 
+      	//the vehicle that picks up a task must deliver it 
+     	//if vehicle(Pi) = vk ⇒ vehicle(Di) = vk 
+     	for(int i=0; i<sz_t; i++) {
+     		if(vars.vehicles[i]!=vars.vehicles[i+sz_t]) {
+     			System.out.println("for loop 9");
+     			System.out.println("Warning: The vehicle that picks up a task must deliver it");
+     			Bool = false;
+     		}
+     	}
+     	return Bool;
+     }
     
     
     private Variables SelectInitialSolution(List<Vehicle> vehicles, TaskSet tasks) {
@@ -380,6 +424,50 @@ public class CentralizedTemplate implements CentralizedBehavior {
     	Variables vars = new Variables(index, nextTasks, time, vehicle);
     	return vars;
     }
+    
+    private ArrayList<Variables> ChooseNeighbors (Variables vars, TaskSet tasks, List<Vehicle> vehicles) {
+    	ArrayList<Variables> N = new ArrayList<Variables>(); //N = {}
+    	Vehicle vehicle1 = vehicles.get(0);
+    	// vi = random(v1..vNV ) such that Aold(nextTask(vi )) != NULL
+    	do {
+    		int rand = Math.toIntExact(Math.round(Math.random()*3));
+    		vehicle1 = vehicles.get(rand);
+    	} while (vars.NextTasks[findIndex(vars.index, "v" + Integer.toString(vehicle1.id()+1))] != "NULL");
+    	for (int i = 0; i<4; i++) {
+    		Vehicle vehicle2 = vehicles.get(i);
+    		if (vehicle1.id() != vehicle2.id()) {
+    			int count = 0;
+    			Variables neighbors = new Variables(vars.index, vars.NextTasks, vars.time, vars.vehicles);
+    			while(count < 5 && Constraints(vehicles, tasks, neighbors) == false) {
+    				neighbors = ChangingVehicle(vars, vehicle1, vehicle2); //A = ChangingVehicle(Aold, vi, vj )
+    				count++;
+    			}
+    			N.add(neighbors); // N = N ∪ {A}
+    		}
+    	}
+    	// Applying the Changing task order operator : 
+    	// compute the number of tasks of the vehicle
+    	int length = 0;
+    	String task = "v" + Integer.toString(vehicle1.id()+1); //t = vi // current task in the list
+    	do {
+    		task = vars.NextTasks[findIndex(vars.index, task)]; //t = AoldnextTask(t)
+    		length++;
+    	} while(task != "NULL");
+    	if (length >= 2) {
+    		for (int tIdx1 = 0; tIdx1<length; tIdx1++) {
+    			for (int tIdx2 = tIdx1+1; tIdx2<length; tIdx2 ++) {
+    				int count = 0;
+    				Variables neighbors = new Variables(vars.index, vars.NextTasks, vars.time, vars.vehicles);
+    				while(count < 5 && Constraints(vehicles, tasks, neighbors) == false) {
+        				neighbors = ChangingTaskOrder(vars, vehicle1, tIdx1, tIdx2); //A = ChangingTaskOrder(Aold, vi, tIdx1, tIdx2)
+        				count++;
+        			}
+    				N.add(neighbors); //N = N ∪ {A}
+    			}
+    		}
+    	}
+    	return N;
+    }
 
     
     private Variables ChangingVehicle(Variables vars, Vehicle vehicle1, Vehicle vehicle2) {
@@ -396,8 +484,9 @@ public class CentralizedTemplate implements CentralizedBehavior {
     
     private Variables ChangingTaskOrder(Variables vars, Vehicle vehicle, int tidx1, int tidx2) {
     	Variables changed = new Variables(vars.index, vars.NextTasks, vars.time, vars.vehicles); //A1 = A
-    	String task1 = changed.NextTasks[findIndex(vars.index, "v" + Integer.toString(vehicle.id()+1))]; //t1 = A1nextT ask(tP re1 ) // task1
-    	String tPre1 = "";
+    	String tPre1 = "v" + Integer.toString(vehicle.id()+1);
+    	String task1 = changed.NextTasks[findIndex(vars.index, tPre1)]; //t1 = A1nextT ask(tP re1 ) // task1
+    	System.out.println(task1);
     	int count = 1;
     	while (count < tidx1) {
     		String replace = task1;
