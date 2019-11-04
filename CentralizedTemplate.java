@@ -32,9 +32,8 @@ import logist.topology.Topology.City;
 public class CentralizedTemplate implements CentralizedBehavior {
 	
 	// Default Values
-	private static final double CONSERVATIVE_RATE = 0.5;
-	private static final int CYCLE_NB = 2000;
-	private static final int[] EMPTY = null;
+	private static final double CONSERVATIVE_RATE = 1;
+	private static final int CYCLE_NB = 1000;
 
     private Topology topology;
     private TaskDistribution distribution;
@@ -80,8 +79,8 @@ public class CentralizedTemplate implements CentralizedBehavior {
         Plan planVehicle1 = naivePlan(vehicles.get(0), tasks);
 
         List<Plan> plans = new ArrayList<Plan>();
-        Variables choice = StochasticLocalSearch(vehicles, tasks);
-        System.out.println("choice: "+ Arrays.toString(choice.NextTasks));
+        Variables choice =  StochasticLocalSearch(vehicles, tasks);
+        System.out.println("choice : " + Arrays.toString(choice.NextTasks));
         System.out.println("The total distance is : " + CalculateCost(vehicles, tasks, choice) + " km");
         
         int compt = 0;
@@ -165,6 +164,43 @@ public class CentralizedTemplate implements CentralizedBehavior {
     	}
     	return new_arr;
     }
+    
+  //Remove an integer value of a matrix knowing the index
+  	private int[] RemoveFromArrInt(int [] arr, int index) {
+  		// Create another array of size one less 
+          int[] anotherArray = new int[arr.length - 1]; 
+    
+          // Copy the elements except the index 
+          // from original array to the other array 
+          for (int i = 0, k = 0; i < arr.length; i++) { 
+    
+              // if the index is 
+              // the removal element index 
+              if (i == index) { 
+                  continue; 
+              } 
+    
+              // if the index is not 
+              // the removal element index 
+              anotherArray[k++] = arr[i]; 
+          } 
+          
+          // return the resultant array 
+          return anotherArray; 
+      } 
+  	
+  //Remove an integer value of a matrix knowing the integer value
+  	private int[] RemoveZerosFromArr(int [] arr) {
+  		int targetIndex = 0;
+  		for( int sourceIndex = 0;  sourceIndex < arr.length;  sourceIndex++ )
+  		{
+  		    if( arr[sourceIndex] != 0 )
+  		        arr[targetIndex++] = arr[sourceIndex];
+  		}
+  		int[] newArray = new int[targetIndex];
+  		System.arraycopy( arr, 0, newArray, 0, targetIndex );
+  		return newArray;
+      } 
     
  // Linear-search function to find the index of an element 
     public static int findIndex(String arr[], String t) 
@@ -257,7 +293,7 @@ public class CentralizedTemplate implements CentralizedBehavior {
     		Vehicle vehicle = vehicles.get(i);
     		City current = vehicle.getCurrentCity();
     		int sz_t = tasks.size(); // size of tasks
-    		String first_task = vars.NextTasks[2*sz_t + i]; //The first task of the vehicle
+    		String first_task = vars.NextTasks[findIndex(vars.index, "v" + Integer.toString(vehicle.id()+1))]; //The first task of the vehicle
     		if (first_task.equals("NULL")){
     			cost = 0;
     		}
@@ -476,6 +512,8 @@ public class CentralizedTemplate implements CentralizedBehavior {
     	int sz_t = tasks.size();
     	int sz_v = vehicles.size();
     	String[] NextTasks = new String[2*sz_t+sz_v];
+    	int[] Time = new int[2*sz_t];
+    	int[] Vehicle = new int [2*sz_t]; 
     	int[] task_arr = new int[sz_t];
     	for (int i = 0; i<sz_t; i++) {
     		task_arr[i] = i;
@@ -496,29 +534,45 @@ public class CentralizedTemplate implements CentralizedBehavior {
     		j+=1;
     	}
     	
-    	int[] chose_task = new int[sz_t];
+    	int[] chose_task = new int[sz_t+sz_v];
     	while (task_arr.length != 0) {
     		for (int k = 0; k<sz_v; k++) {
-    			int random_task = Math.toIntExact(Math.round(Math.random()*task_arr.length));
-    			int task_nb = task_arr[random_task]; //One of the remaining task is chosen randomly and is assigned to a vehicle
-    			chose_task[time*sz_v+k] = task_nb;
+    			int random_task = Math.toIntExact(Math.round(Math.random()*(task_arr.length-1)));
+    			int task_nb = task_arr[random_task] + 1; //One of the remaining task is chosen randomly and is assigned to a vehicle
+    			chose_task[(time*sz_v)/2+k] = task_nb;
     			if (time == 0) {
     				NextTasks = ChangeFromArray(NextTasks, findIndex(index, "v"+ Integer.toString(vehicles.get(k).id()+1)), "P"+Integer.toString(task_nb)); //ANextTask(vi) = P_tasknb
     				NextTasks = ChangeFromArray(NextTasks, findIndex(index, "P"+ Integer.toString(task_nb)), "D"+Integer.toString(task_nb)); //ANextTask(P_tasknb) = D_tasknb
+    				Time = ChangeFromArrayInt(Time, findIndex(index, "P"+ Integer.toString(task_nb)), time+1); //Set time for ATime(P_tasknb) 
+    				Time = ChangeFromArrayInt(Time, findIndex(index, "D"+ Integer.toString(task_nb)), time+2); //Set time for ATime(D_tasknb)
+    				Vehicle = ChangeFromArrayInt(Vehicle, findIndex(index, "P" + Integer.toString(task_nb)), k+1); //Set AVehicle(P_tasknb) with the vehicle chosen
+    				Vehicle = ChangeFromArrayInt(Vehicle, findIndex(index, "D" + Integer.toString(task_nb)), k+1); //Set AVehicle(D_tasknb) with the vehicle chosen
     			}
     			else {
-    				
+    				NextTasks = ChangeFromArray(NextTasks, findIndex(index, "D" + Integer.toString(chose_task[((time-2)*sz_v)/2+k])), "P" + Integer.toString(task_nb)); //ANextTask(Dpre) = P_tasknb
+    				NextTasks = ChangeFromArray(NextTasks, findIndex(index, "P" + Integer.toString(task_nb)), "D"+Integer.toString(task_nb)); //AnextTask(P_tasknb) = D_tasknb
+    				Time = ChangeFromArrayInt(Time, findIndex(index, "P"+ Integer.toString(task_nb)), time+1); //Set time for ATime(P_tasknb) 
+    				Time = ChangeFromArrayInt(Time, findIndex(index, "D"+ Integer.toString(task_nb)), time+2); //Set time for ATime(D_tasknb)
+    				Vehicle = ChangeFromArrayInt(Vehicle, findIndex(index, "P" + Integer.toString(task_nb)), k+1); //Set AVehicle(P_tasknb) with the vehicle chosen
+    				Vehicle = ChangeFromArrayInt(Vehicle, findIndex(index, "D" + Integer.toString(task_nb)), k+1); //Set AVehicle(D_tasknb) with the vehicle chosen
+    			}
+    			task_arr = RemoveFromArrInt(task_arr, random_task);
+    			if (task_arr.length == 0) {
+    				k = sz_v;
     			}
     		}
     		time += 2;
     	}
-    	Variables vars = new Variables(index, NextTasks, time, vehicle);
+    	chose_task = RemoveZerosFromArr(chose_task);
+    	for (int k = 0; k<sz_v; k++) {
+    		NextTasks = ChangeFromArray(NextTasks, findIndex(index, "D" + Integer.toString(chose_task[chose_task.length-k-1])), "NULL"); //The nextTask of the last task delivery will be equal to NULL
+    	}
+    	Variables vars = new Variables(index, NextTasks, Time, Vehicle);
     	return vars;
     }
     
     private ArrayList<Variables> ChooseNeighbours (Variables vars, TaskSet tasks, List<Vehicle> vehicles) {
     	ArrayList<Variables> N = new ArrayList<Variables>(); //N = {}
-    	N.add(vars);
     	Vehicle vehicle1 = vehicles.get(0);
     	// vi = random(v1..vNV ) such that Aold(nextTask(vi )) != NULL
     	do {
@@ -531,6 +585,7 @@ public class CentralizedTemplate implements CentralizedBehavior {
     			int count = 0;
     			Variables neighbors = new Variables(vars.index, vars.NextTasks, vars.time, vars.vehicles);
     			neighbors = ChangingVehicle(vars, vehicle1, vehicle2); //A = ChangingVehicle(Aold, vi, vj )
+    			System.out.println(Constraints(vehicles, tasks, neighbors));
     			if (Constraints(vehicles, tasks, neighbors)) {
 					N.add(neighbors); //N = N ∪ {A}
 				}
@@ -563,34 +618,48 @@ public class CentralizedTemplate implements CentralizedBehavior {
     private Variables ChangingVehicle(Variables vars, Vehicle vehicle1, Vehicle vehicle2) {
     	Variables changed = new Variables(vars.index, vars.NextTasks, vars.time, vars.vehicles); //A1 = A
     	String picktask = vars.NextTasks[findIndex(vars.index, "v" + Integer.toString(vehicle1.id()+1))]; // t = nextTask(v1)
+    	
+    	
     	String nextTask = changed.NextTasks[findIndex(vars.index, picktask)]; //A1nextTask(t)
+    	String futureTask = changed.NextTasks[findIndex(vars.index, nextTask)]; //A1nextTask(nextTask)
     	
     	//Find the corresponding delivery task of the new first task of vehicle 2
-    	int task_nb = Integer.parseInt(picktask.replace(picktask.split("(?<=\\G.)")[0], ""));
-    	int index = 0;
-    	for (int i = 0; i<vars.NextTasks.length; i++) {
-    		if (vars.NextTasks[i] != "NULL") {
-    			int number = Integer.parseInt(vars.NextTasks[i].replace(vars.NextTasks[i].split("(?<=\\G.)")[0], ""));
-    			if (number == task_nb && vars.NextTasks[i].split("(?<=\\G.)")[0].equals("D")) {
-    				index = i;
-    			}
-    		}
+		int task_nb = Integer.parseInt(picktask.replace(picktask.split("(?<=\\G.)")[0], ""));
+		int index = 0;
+		for (int i = 0; i<vars.NextTasks.length; i++) {
+			if (vars.NextTasks[i] != "NULL") {
+				int number = Integer.parseInt(vars.NextTasks[i].replace(vars.NextTasks[i].split("(?<=\\G.)")[0], ""));
+				if (number == task_nb && vars.NextTasks[i].split("(?<=\\G.)")[0].equals("D")) {
+					index = i;
+				}
+			}
+		}
+	
+		//tpre is the action before the selected delivery and tpost the action after
+	
+		String tpre = vars.index[index];
+		String deltask = changed.NextTasks[findIndex(vars.index, tpre)];
+		String tpost = changed.NextTasks[findIndex(vars.index, deltask)];
+    	
+    	if (nextTask.equals(deltask)) {
+    		changed.NextTasks = ChangeFromArray(changed.NextTasks, findIndex(vars.index, "v" + Integer.toString(vehicle1.id()+1)), futureTask); // A1nextTask(v1) =A1nextTask(nexttask) = futuretask
+    		changed.NextTasks = ChangeFromArray(changed.NextTasks, findIndex(vars.index, nextTask), changed.NextTasks[ findIndex(vars.index, "v" + Integer.toString(vehicle2.id()+1))]); // A1nextTask(deltask) =A1nextTask(v2)
+        	changed.NextTasks = ChangeFromArray(changed.NextTasks,  findIndex(vars.index, "v" + Integer.toString(vehicle2.id()+1)),  picktask); // A1nextTask(v2) =picktask
+        	changed.NextTasks = ChangeFromArray(changed.NextTasks,  findIndex(vars.index, picktask),  deltask); // A1nextTask(picktask) =deltask
     	}
     	
-    	//tpre is the action before the selected delivery and tpost the action after
+    	else {
+    		changed.NextTasks = ChangeFromArray(changed.NextTasks, findIndex(vars.index, "v" + Integer.toString(vehicle1.id()+1)), nextTask); // A1nextTask(v1) =nexttask
+    		changed.NextTasks = ChangeFromArray(changed.NextTasks, findIndex(vars.index, tpre), tpost); // A1nextTask(tpre) = tpost
+    		changed.NextTasks = ChangeFromArray(changed.NextTasks, findIndex(vars.index, deltask), changed.NextTasks[ findIndex(vars.index, "v" + Integer.toString(vehicle2.id()+1))]); // A1nextTask(deltask) =A1nextTask(v2)
+    		changed.NextTasks = ChangeFromArray(changed.NextTasks,  findIndex(vars.index, "v" + Integer.toString(vehicle2.id()+1)),  picktask); // A1nextTask(v2) =picktask
+    		changed.NextTasks = ChangeFromArray(changed.NextTasks,  findIndex(vars.index, picktask),  deltask); // A1nextTask(picktask) =deltask
+    	}
     	
-    	String tpre = vars.index[index];
-    	String deltask = changed.NextTasks[findIndex(vars.index, tpre)];
-    	String tpost =  changed.NextTasks[findIndex(vars.index, deltask)];
-    	
-    	changed.NextTasks = ChangeFromArray(changed.NextTasks, findIndex(vars.index, "v" + Integer.toString(vehicle1.id()+1)), changed.NextTasks[findIndex(vars.index, nextTask)]); // A1nextTask(v1) =A1nextTask(nexttask)
-    	changed.NextTasks = ChangeFromArray(changed.NextTasks, findIndex(vars.index, deltask), changed.NextTasks[ findIndex(vars.index, "v" + Integer.toString(vehicle2.id()+1))]); // A1nextTask(deltask) =A1nextTask(v2)
-    	changed.NextTasks = ChangeFromArray(changed.NextTasks,  findIndex(vars.index, "v" + Integer.toString(vehicle2.id()+1)),  picktask); // A1nextTask(v2) =picktask
-    	changed.NextTasks = ChangeFromArray(changed.NextTasks,  findIndex(vars.index, picktask),  deltask); // A1nextTask(picktask) =deltask
     	changed = UpdateTime(changed, vehicle1);
     	changed = UpdateTime(changed, vehicle2);
     	changed.vehicles = ChangeFromArrayInt(changed.vehicles, findIndex(vars.index, picktask), vehicle2.id()+1); //A1vehicle(picktask) = v2
-    	changed.vehicles = ChangeFromArrayInt(changed.vehicles, findIndex(vars.index, deltask), vehicle2.id()+1); //A1vehicle(deltask) = v2
+    	changed.vehicles = ChangeFromArrayInt(changed.vehicles, findIndex(vars.index, deltask), vehicle2.id()+1); //A1vehicle(deltask) = v2;
     	return changed;
     }
     
@@ -634,22 +703,24 @@ public class CentralizedTemplate implements CentralizedBehavior {
     }
     
     private Variables LocalChoice (ArrayList<Variables> neighbors_vars, List<Vehicle> vehicles, TaskSet tasks) {
-    	double cost = CalculateCost(vehicles, tasks, neighbors_vars.get(0));
-    	int index = 0;
-    	for (int i= 1; i<neighbors_vars.size(); i++) {
-    		double new_cost = CalculateCost(vehicles, tasks, neighbors_vars.get(i));
-    		if (new_cost < cost) {
-    			cost = new_cost;
-    			index = i;
-    		}
-    	}
     	double proba = Math.random();
-    	if (proba > conservative_rate) {
-    		return neighbors_vars.get(0);
-    	}
-    	else {
+    	if(neighbors_vars.size()>1 && proba < conservative_rate) {
+    		double cost = CalculateCost(vehicles, tasks, neighbors_vars.get(1));
+    		int index = 1;
+    		for (int i= 1; i<neighbors_vars.size(); i++) {
+    			double new_cost = CalculateCost(vehicles, tasks, neighbors_vars.get(i));
+    			if (new_cost < cost) {
+    				cost = new_cost;
+    				index = i;
+    			}
+    		}
+    		
     		return neighbors_vars.get(index);
+
     	}
+    	else
+    		return neighbors_vars.get(0);
+    	
     }
     
     private Variables UpdateTime (Variables vars, Vehicle vehicle1) {
