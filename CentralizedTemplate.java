@@ -30,12 +30,19 @@ import logist.topology.Topology.City;
  */
 @SuppressWarnings("unused")
 public class CentralizedTemplate implements CentralizedBehavior {
+	
+	// Default Values
+	private static final double CONSERVATIVE_RATE = 0.5;
+	private static final int CYCLE_NB = 2000;
+	private static final int[] EMPTY = null;
 
     private Topology topology;
     private TaskDistribution distribution;
     private Agent agent;
     private long timeout_setup;
     private long timeout_plan;
+    private double conservative_rate = CONSERVATIVE_RATE;
+    private int cycle_nb = CYCLE_NB;
     
     @Override
     public void setup(Topology topology, TaskDistribution distribution,
@@ -59,6 +66,11 @@ public class CentralizedTemplate implements CentralizedBehavior {
         this.distribution = distribution;
         this.agent = agent;
     }
+    
+    public String[] getInitParam(){
+        String[] initParams = { "Conservative probability" , "number of iterations"};
+        return initParams;
+      }
 
     @Override
     public List<Plan> plan(List<Vehicle> vehicles, TaskSet tasks) {
@@ -97,7 +109,7 @@ public class CentralizedTemplate implements CentralizedBehavior {
     		vars = LocalChoice(neigh, vehicles, tasks);
     		System.out.println("Cycle : " + count);
     		count ++;
-    	} while(count<1000);
+    	} while(count<cycle_nb);
     	return vars;
     }
 
@@ -463,30 +475,15 @@ public class CentralizedTemplate implements CentralizedBehavior {
     private Variables SelectInitialSolution(List<Vehicle> vehicles, TaskSet tasks) {
     	int sz_t = tasks.size();
     	int sz_v = vehicles.size();
-    	String [] nextTasks = new String[2*sz_t + sz_v];
-    	int [] time = new int[2*sz_t];
-    	int [] vehicle = new int[2*sz_t];
+    	String[] NextTasks = new String[2*sz_t+sz_v];
+    	int[] task_arr = new int[sz_t];
+    	for (int i = 0; i<sz_t; i++) {
+    		task_arr[i] = i;
+    	}
+    	int time = 0;
     	String [] index = new String[2*sz_t + sz_v];
     	int size_index = index.length;
     	
-    	for (int i = 0; i<sz_t-1; i++) {
-    		nextTasks[i] = "D" + Integer.toString(i+1); //After the pickup, the vehicle directly make the delivery
-    		time[i] = 2*i+1;
-    		vehicle[i] = 1; // The first vehicle make all the tasks
-    		nextTasks[sz_t + i] = "P" + Integer.toString(i+2); //After the delivery, the vehicle directly make the pickup
-    		time[sz_t+i] = 2*(i+1);
-    		vehicle[sz_t+i] = 1;
-    	}
-    	nextTasks[sz_t - 1] = "D" + Integer.toString(sz_t);
-    	nextTasks[2*sz_t-1] = "NULL"; // After deliver the last task, the vehicle stops
-    	time[sz_t -1] = 2*sz_t-1;
-    	time[2*sz_t-1] = 2*sz_t;
-    	vehicle[sz_t - 1] = 1;
-    	vehicle[2*sz_t-1] = 1;
-    	for (int j = 0; j<sz_v; j++) {
-    		nextTasks[2*sz_t + j] = "NULL";
-    	}
-    	nextTasks[2*sz_t] = "P1"; //The first task of the vehicle is P1
     	//construct the index 
     	for(int i=0; i<sz_t;i++) {
     		index[i] = "P" + Integer.toString(i+1);
@@ -499,13 +496,29 @@ public class CentralizedTemplate implements CentralizedBehavior {
     		j+=1;
     	}
     	
-    	System.out.println("Indexes: " + Arrays.toString(index));
-    	Variables vars = new Variables(index, nextTasks, time, vehicle);
+    	int[] chose_task = new int[sz_t];
+    	while (task_arr.length != 0) {
+    		for (int k = 0; k<sz_v; k++) {
+    			int random_task = Math.toIntExact(Math.round(Math.random()*task_arr.length));
+    			int task_nb = task_arr[random_task]; //One of the remaining task is chosen randomly and is assigned to a vehicle
+    			chose_task[time*sz_v+k] = task_nb;
+    			if (time == 0) {
+    				NextTasks = ChangeFromArray(NextTasks, findIndex(index, "v"+ Integer.toString(vehicles.get(k).id()+1)), "P"+Integer.toString(task_nb)); //ANextTask(vi) = P_tasknb
+    				NextTasks = ChangeFromArray(NextTasks, findIndex(index, "P"+ Integer.toString(task_nb)), "D"+Integer.toString(task_nb)); //ANextTask(P_tasknb) = D_tasknb
+    			}
+    			else {
+    				
+    			}
+    		}
+    		time += 2;
+    	}
+    	Variables vars = new Variables(index, NextTasks, time, vehicle);
     	return vars;
     }
     
     private ArrayList<Variables> ChooseNeighbours (Variables vars, TaskSet tasks, List<Vehicle> vehicles) {
     	ArrayList<Variables> N = new ArrayList<Variables>(); //N = {}
+    	N.add(vars);
     	Vehicle vehicle1 = vehicles.get(0);
     	// vi = random(v1..vNV ) such that Aold(nextTask(vi )) != NULL
     	do {
@@ -630,7 +643,13 @@ public class CentralizedTemplate implements CentralizedBehavior {
     			index = i;
     		}
     	}
-    	return neighbors_vars.get(index);
+    	double proba = Math.random();
+    	if (proba > conservative_rate) {
+    		return neighbors_vars.get(0);
+    	}
+    	else {
+    		return neighbors_vars.get(index);
+    	}
     }
     
     private Variables UpdateTime (Variables vars, Vehicle vehicle1) {
