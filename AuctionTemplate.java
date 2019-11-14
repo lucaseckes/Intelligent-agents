@@ -60,6 +60,7 @@ public class AuctionTemplate implements AuctionBehavior {
 			return null;
 		
 		double [] value = valueFunction();
+		System.out.println(Arrays.toString(value));
 		double future_reward = value[task.pickupCity.id];
 
 		long distanceTask = task.pickupCity.distanceUnitsTo(task.deliveryCity);
@@ -77,18 +78,23 @@ public class AuctionTemplate implements AuctionBehavior {
 	@Override
 	public List<Plan> plan(List<Vehicle> vehicles, TaskSet tasks) {
 		
+		long time_start = System.currentTimeMillis();
+        
 //		System.out.println("Agent " + agent.id() + " has tasks " + tasks);
+        Plan planVehicle1 = naivePlan(vehicles.get(0), tasks);
+        
+        CentralizedTemplate centralized = new CentralizedTemplate();
+        centralized.setup(topology, distribution, agent);
 
-		Plan planVehicle1 = naivePlan(vehicle, tasks);
-		
-
-		List<Plan> plans = new ArrayList<Plan>();
-		plans.add(planVehicle1);
-		while (plans.size() < vehicles.size())
-			plans.add(Plan.EMPTY);
-
-		return plans;
+        List<Plan> plans = centralized.plan(vehicles, tasks);
+        
+        long time_end = System.currentTimeMillis();
+        long duration = time_end - time_start;
+        System.out.println("The plan was generated in " + duration + " milliseconds.");
+        
+        return plans;
 	}
+	
 
 	private Plan naivePlan(Vehicle vehicle, TaskSet tasks) {
 		City current = vehicle.getCurrentCity();
@@ -115,19 +121,40 @@ public class AuctionTemplate implements AuctionBehavior {
 		return plan;
 	}
 	
-	public double [][] rewardMatrix(){
-		double [][] matrix = new double[9][2];
+	public double [] pickup_proba() {
 		List<City> Cities = topology.cities(); //The list of cities are given by ascending ID number
+		int size_cities = Cities.size();
+		
+		double [] matrix = new double[size_cities];
+		for (int s=0; s<size_cities; s++) {
+			for (int j = 0; j<size_cities; j++) {
+			matrix[s] += distribution.probability(Cities.get(s), Cities.get(j));
+			}
+		}
+		
+		return matrix;
+	}
 	
-		for (int s=0; s<9; s++) {
+	public double [][] rewardMatrix(){
+		
+		List<City> Cities = topology.cities(); //The list of cities are given by ascending ID number
+		int size_cities = Cities.size();
+		
+		double [][] matrix = new double[size_cities][2];
+		double [] pickup_matrix = pickup_proba();
+		
+		for (int s=0; s<size_cities; s++) {
 			List<City> Neighbors = Cities.get(s).neighbors();
-			for (int j = 0; j<9; j++) {
+			for (int j = 0; j<size_cities; j++) {
 				//Calculate the average reward of taking the pickup action in this city
-				matrix[s][0] += distribution.probability(Cities.get(s), Cities.get(j))*(distribution.reward(Cities.get(s), Cities.get(j))-vehicle.costPerKm()*Cities.get(s).distanceTo(Cities.get(j))); 
+				matrix[s][0] -= pickup_matrix[j]*vehicle.costPerKm()*Cities.get(s).distanceTo(Cities.get(j)); 
+				for (int k = 0; k<size_cities; k++) {
+					matrix[s][0] += distribution.probability(Cities.get(j), Cities.get(k))*vehicle.costPerKm()*Cities.get(j).distanceTo(Cities.get(k));
+				}
 			}
 			for (int k = 0; k<Neighbors.size(); k++) {
 				//Calculate the reward (negative value) of not taking the pickup action and going in another city 
-				matrix[s][1] -= vehicle.costPerKm() * (Cities.get(s).distanceTo(Neighbors.get(k)));
+				matrix[s][1] = 0;
 			}
 			matrix[s][1] = matrix[s][1]/Neighbors.size();
 		} 
@@ -138,28 +165,29 @@ public class AuctionTemplate implements AuctionBehavior {
 		List<City> Cities;	
 		Cities = topology.cities();
 		int size = topology.size();
-		double sizeNeighbors = 0;
+		double [] pickup_matrix = pickup_proba();
 	
 		double [][][]matrix = new double [size][2][size];
+		double sum = 0;
 
 		for (int i=0; i<size; i++) {
-			
-			sizeNeighbors = Cities.get(i).neighbors().size();
-			for (int j=0; j<2; j++) {
+			sum = 0;
 				for (int k = 0; k<size; k++) {
+					for (int j=0; j<size; j++) {
+						matrix[i][0][k] += pickup_matrix[j]*distribution.probability(Cities.get(j), Cities.get(k));
+						sum+=matrix[i][0][k];
+					}
 					
-					matrix[i][0][k] = distribution.probability(Cities.get(i), Cities.get(k));
-					
-					
-					if(!(Cities.get(i).hasNeighbor(Cities.get(k)))) {
-						matrix[i][1][k] = 0;
+					if(i == k) {
+						matrix[i][1][k] = 1;
 					}
 					else {
-						matrix[i][1][k] = 1/sizeNeighbors;
+						matrix[i][1][k] = 0;
 							
 					}
-				}
-					
+			}
+			for (int k = 0; k<size; k++) {
+				matrix[i][0][k] = matrix[i][0][k]/sum;
 			}
 				
 		}
@@ -169,6 +197,10 @@ public class AuctionTemplate implements AuctionBehavior {
 	}
 	
 	public double [] valueFunction() {
+		
+		List<City> Cities = topology.cities(); //The list of cities are given by ascending ID number
+		int size_cities = Cities.size();
+		
 		int niter =0;
 		double epsilon = 0.01;
 		int size = topology.size();
@@ -184,10 +216,10 @@ public class AuctionTemplate implements AuctionBehavior {
 		
 		double [][] qArray = new double[size][2];
 		while (Arrays.stream(diff).max().getAsDouble() > epsilon) {
-			for (int s = 0; s<9; s++) {
+			for (int s = 0; s<size_cities; s++) {
 				for (int a = 0; a<2; a++) {
 					qArray[s][a] = rewardMatrix[s][a];
-					for (int s_ = 0; s_<9; s_++) {
+					for (int s_ = 0; s_<size_cities; s_++) {
 						qArray[s][a] += 0.95*transitionMatrix[s][a][s_]*old_value[s_];
 						
 					}
