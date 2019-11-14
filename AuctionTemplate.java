@@ -16,6 +16,7 @@ import logist.task.TaskDistribution;
 import logist.task.TaskSet;
 import logist.topology.Topology;
 import logist.topology.Topology.City;
+import template.CentralizedTemplate.Variables;
 
 /**
  * A very simple auction agent that assigns all tasks to its first vehicle and
@@ -31,6 +32,7 @@ public class AuctionTemplate implements AuctionBehavior {
 	private Random random;
 	private Vehicle vehicle;
 	private City currentCity;
+	double [] valueFunction;
 
 	@Override
 	public void setup(Topology topology, TaskDistribution distribution,
@@ -44,6 +46,7 @@ public class AuctionTemplate implements AuctionBehavior {
 
 		long seed = -9019554669489983951L * currentCity.hashCode() * agent.id();
 		this.random = new Random(seed);
+		this.valueFunction = valueFunction();
 	}
 
 	@Override
@@ -58,10 +61,9 @@ public class AuctionTemplate implements AuctionBehavior {
 
 		if (vehicle.capacity() < task.weight)
 			return null;
-		
-		double [] value = valueFunction();
-		System.out.println(Arrays.toString(value));
-		double future_reward = value[task.pickupCity.id];
+
+		double actual_reward = valueFunction[currentCity.id];
+		double future_reward = valueFunction[task.deliveryCity.id];
 
 		long distanceTask = task.pickupCity.distanceUnitsTo(task.deliveryCity);
 		long distanceSum = distanceTask
@@ -69,8 +71,10 @@ public class AuctionTemplate implements AuctionBehavior {
 		double marginalCost = Measures.unitsToKM(distanceSum
 				* vehicle.costPerKm());
 
-		double ratio = 1.0 + (random.nextDouble() * 0.05 * task.id);
-		double bid = marginalCost + 0.2*(future_reward-marginalCost);
+	
+		double bid = marginalCost - (future_reward-actual_reward);
+		System.out.println("bid : " + bid);
+		System.out.println("reward : " + task.reward);
 
 		return (long) Math.round(bid);
 	}
@@ -82,11 +86,17 @@ public class AuctionTemplate implements AuctionBehavior {
         
 //		System.out.println("Agent " + agent.id() + " has tasks " + tasks);
         Plan planVehicle1 = naivePlan(vehicles.get(0), tasks);
+        List<Plan> plans = new ArrayList<Plan>();
         
-        CentralizedTemplate centralized = new CentralizedTemplate();
-        centralized.setup(topology, distribution, agent);
-
-        List<Plan> plans = centralized.plan(vehicles, tasks);
+        if (tasks.isEmpty()) {
+        	while (plans.size() < vehicles.size())
+    			plans.add(Plan.EMPTY);
+        }
+        else {
+        	CentralizedTemplate centralized = new CentralizedTemplate();
+        	centralized.setup(topology, distribution, agent);
+        	plans = centralized.plan(vehicles, tasks);
+        }
         
         long time_end = System.currentTimeMillis();
         long duration = time_end - time_start;
@@ -101,8 +111,6 @@ public class AuctionTemplate implements AuctionBehavior {
 		Plan plan = new Plan(current);
 
 		for (Task task : tasks) {
-			System.out.println("bid : " + askPrice(task));
-			System.out.println("reward : " + task.reward);
 			// move: current city => pickup location
 			for (City city : current.pathTo(task.pickupCity))
 				plan.appendMove(city);
