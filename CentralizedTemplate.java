@@ -32,16 +32,20 @@ import logist.topology.Topology.City;
 public class CentralizedTemplate implements CentralizedBehavior {
 	
 	// Default Values
-	private static final double CONSERVATIVE_RATE = 0.4;
+	private static final double CONSERVATIVE_RATE = 0.1;
 	private static final int CYCLE_NB = 1000;
 
     private Topology topology;
     private TaskDistribution distribution;
     private Agent agent;
-    private long timeout_setup;
-    private long timeout_plan;
+    public long timeout_setup;
+    public long timeout_plan;
+    public long timeout_bid;
     private double conservative_rate = CONSERVATIVE_RATE;
     private int cycle_nb = CYCLE_NB;
+    ArrayList<Double> costs = new ArrayList<Double>();
+    private ArrayList<Variables> tabu;
+    private Variables best; 
     
     @Override
     public void setup(Topology topology, TaskDistribution distribution,
@@ -57,13 +61,16 @@ public class CentralizedTemplate implements CentralizedBehavior {
         }
         
         // the setup method cannot last more than timeout_setup milliseconds
-        timeout_setup = ls.get(LogistSettings.TimeoutKey.SETUP);
+        this.timeout_setup = ls.get(LogistSettings.TimeoutKey.SETUP);
         // the plan method cannot execute more than timeout_plan milliseconds
-        timeout_plan = ls.get(LogistSettings.TimeoutKey.PLAN);
+        this.timeout_plan = ls.get(LogistSettings.TimeoutKey.PLAN);
+        
+        this.timeout_bid = ls.get(LogistSettings.TimeoutKey.BID);
         
         this.topology = topology;
         this.distribution = distribution;
         this.agent = agent;
+	this.tabu = new ArrayList<Variables>();
     }
     
     public void change_cycle (int cycle) {
@@ -108,19 +115,36 @@ public class CentralizedTemplate implements CentralizedBehavior {
     
     public Variables StochasticLocalSearch(List<Vehicle> vehicles, TaskSet tasks) {
     	Variables vars = SelectInitialSolution(vehicles, tasks);
+	best = vars;
     	//List to store the costs for each iteration
-    	ArrayList<Double> costs = new ArrayList<Double>();
+    	//ArrayList<Double> costs = new ArrayList<Double>();
     	int count = 0;
     	do {
     		Variables old = new Variables(vars.index, vars.NextTasks, vars.time, vars.vehicles);
     		ArrayList<Variables> neigh = ChooseNeighbours(old, tasks, vehicles);
     		vars = LocalChoice(neigh, vehicles, tasks);
     		double cost = CalculateCost(vehicles, tasks, vars);
-    		costs.add(cost);
+    		if(count+200>=cycle_nb) {
+    			costs.add(cost);
+    		}
     		//System.out.println("Cycle : " + count);
     		count ++;
     	} while(count<cycle_nb);
     	return vars;
+    }
+    
+    public Variables StochasticLocalSearch2(List<Vehicle> vehicles, TaskSet tasks, Variables previous, Task task) {		
+    	//if(previous)		
+    	Variables vars = SelectInitialSolution2(vehicles, previous, task, tasks);		
+    	int count = 0;		
+    	do {		
+    		Variables old = new Variables(vars.index, vars.NextTasks, vars.time, vars.vehicles);		
+    		ArrayList<Variables> neigh = ChooseNeighbours(old, tasks, vehicles);		
+    		vars = LocalChoice(neigh, vehicles, tasks);		
+    		//System.out.println("Cycle : " + count);		
+    		count ++;		
+    	} while(count<cycle_nb);		
+    	return vars;		
     }
 
     private Plan naivePlan(Vehicle vehicle, TaskSet tasks) {
@@ -496,6 +520,7 @@ public class CentralizedTemplate implements CentralizedBehavior {
     			Bool = false;
     		}
     	}
+
      	return Bool;
      }
     
@@ -584,6 +609,126 @@ public class CentralizedTemplate implements CentralizedBehavior {
     	}
     	Variables vars = new Variables(index, NextTasks, Time, Vehicle);
     	return vars;
+    }
+    
+    private Variables SelectInitialSolution2(List<Vehicle> vehicles, Variables previous, Task task, TaskSet tasks) {		
+				
+    	int size_tasks= tasks.size();		
+    	int size_vehicles = vehicles.size();		
+    	int task_nb = task.id+1;		
+    			
+    	String[] NextTasks = new String[2*size_tasks+size_vehicles];		
+    	int[] Time = new int[2*size_tasks];		
+    	int[] Vehicle = new int [2*size_tasks]; 		
+    	int[] task_arr = new int[size_tasks];		
+    	String [] index = new String[2*size_tasks + size_vehicles];		
+    	int size_index = index.length;		
+    			
+    	//construct the index 		
+    	for(int i=0; i<size_tasks;i++) {		
+    		index[i] = "P" + Integer.toString(i+1);		
+    		index[i+size_tasks] = "D" + Integer.toString(i+1);		
+    	}		
+    	int j = 1;		
+    	for(int i=2*size_tasks; i<size_index;i++) {		
+    				
+    		index[i] = "v" + Integer.toString(j);		
+    		j+=1;		
+    	}		
+    					
+    	//update vehicles		
+    	for(int i=0; i<size_tasks-1;i++) {		
+    		Vehicle[i] = previous.vehicles[i];		
+    					
+    	}		
+    	//give this task to 1st vehicle		
+    	Vehicle[size_tasks-1] = 1;		
+    			
+    	for(int i=size_tasks; i<2*size_tasks-1;i++) {		
+    		Vehicle[i] = previous.vehicles[i-1];		
+    			
+    	}		
+    	//give this task to 1st vehicle		
+    	Vehicle[2*size_tasks-1] = 1;		
+    			
+    			
+    			
+    	//update NextTasks		
+    	String task_ = previous.NextTasks[findIndex(previous.index, "v" + Integer.toString(1))];		
+    	if(task_ == "NULL") {		
+    		NextTasks[findIndex(index, "v" + Integer.toString(1))]= "P" + Integer.toString(task_nb);
+    		NextTasks[findIndex(index, "P" + Integer.toString(task_nb))] =  "D" + Integer.toString(task_nb);		
+    		NextTasks[findIndex(index, "D" + Integer.toString(task_nb))] = "NULL";		
+    	}		
+    	else {		
+    		NextTasks[findIndex(index, "v" + Integer.toString(1))] = task_;		
+        	String test;		
+        	while(task_!="NULL") {		
+        				
+        		test = task_;		
+        		task_ = previous.NextTasks[findIndex(previous.index, task_)];		
+        				
+        		if(task_=="NULL")		
+        			//NextTasks[findIndex(index, task_)] =  "P" + Integer.toString(task_nb);		
+    				NextTasks[findIndex(index, test)] =  "P" + Integer.toString(task_nb);		
+        				
+        		else		
+        			NextTasks[findIndex(index, test)] = task_;		
+        	}		
+
+        	NextTasks[findIndex(index, "P" + Integer.toString(task_nb))] =  "D" + Integer.toString(task_nb);		
+        	NextTasks[findIndex(index, "D" + Integer.toString(task_nb))] = "NULL";		
+    				
+    	}		
+    			
+    	//int id = findIndex(previous.index, task_);		
+    	//String last_task = previous.index[id];		
+    	//NextTasks[findIndex(index, task_)] = task_;		
+    			
+    			
+    	//let the 2nd vehicle tasks the same		
+    	String task_2 = previous.NextTasks[findIndex(previous.index, "v" + Integer.toString(2))];		
+    			
+    	if(task_2 == "NULL") {		
+    		NextTasks[findIndex(index, "v" + Integer.toString(2))]= "NULL";		
+    	}		
+    	else {		
+    		String test;		
+    		NextTasks[findIndex(index, "v" + Integer.toString(2))] = task_2;		
+    				
+    		while(task_2!="NULL") {		
+        				
+    			test = task_2;		
+    			task_2 = previous.NextTasks[findIndex(previous.index, task_2)];		
+    			if(task_2=="NULL")		
+    				NextTasks[findIndex(index, test)] =  "NULL";		
+    					
+    			else {		
+		    				
+		    		//NextTasks[findIndex(index, task_2)] = task_2;		
+    				NextTasks[findIndex(index, test)] = task_2;		
+    			}		
+        	}		
+    	}		
+    			
+    			
+    			
+    			
+    	for(int i=0; i<2*size_tasks;i++) {		
+    		Time[i] = 0;		
+    	}		
+    					
+    //NextTasks, findIndex(index, "v"+ Integer.toString(vehicles.get(k).id()+1)), "P"+Integer.toString(task_nb));		
+    	Variables new_vars = new Variables(index, NextTasks, Time, Vehicle);		
+    					
+    	//System.out.println("time: "+Arrays.toString(new_vars.time));		
+    	//update time		
+    	for(int v=0; v<size_vehicles; v++) {		
+    		new_vars = UpdateTime(new_vars, vehicles.get(v));		
+    	}				
+    			
+    			
+    	return new_vars;		
     }
     
     private ArrayList<Variables> ChooseNeighbours (Variables vars, TaskSet tasks, List<Vehicle> vehicles) {
@@ -815,22 +960,64 @@ public class CentralizedTemplate implements CentralizedBehavior {
     }
     
     private Variables LocalChoice (ArrayList<Variables> neighbors_vars, List<Vehicle> vehicles, TaskSet tasks) {
-    	double proba = Math.random();
-    	//System.out.println("The number of neighbours is : " + (neighbors_vars.size()-1));
-    	double cost = CalculateCost(vehicles, tasks, neighbors_vars.get(1));
-    	int index = 1;
-    	for (int i= 1; i<neighbors_vars.size(); i++) {
-    		double new_cost = CalculateCost(vehicles, tasks, neighbors_vars.get(i));
-    		if (new_cost < cost) {
-    			cost = new_cost;
-    			index = i;
+    	Variables next = neighbors_vars.get(0);
+    	do {
+    		double proba = Math.random();
+    		ArrayList<Integer> index = new ArrayList<Integer>();
+    		System.out.println("The number of neighbours is : " + (neighbors_vars.size()-1));
+    		double previous_cost = CalculateCost(vehicles, tasks, neighbors_vars.get(0));
+    		double cost = CalculateCost(vehicles, tasks, neighbors_vars.get(1));
+    		int idx = 1;
+    		for (int i= 1; i<neighbors_vars.size(); i++) {
+    			double new_cost = CalculateCost(vehicles, tasks, neighbors_vars.get(i));
+    			if (new_cost < cost) {
+    				index = new ArrayList<Integer>();
+    				cost = new_cost;
+    				index.add(i);
+    			}
+    			else if (new_cost == cost) {
+    				index.add(i);
+    			}
     		}
-    	}
     	
-    		if(proba > conservative_rate) 
-    			return neighbors_vars.get(1);
-    		else
-    			return neighbors_vars.get(index);
+    		if (cost == previous_cost) {
+    			tabu.add(neighbors_vars.get(0));
+    			index = new ArrayList<Integer>();
+    			idx = 1;
+    			do {
+    				idx++;
+    			} while (CalculateCost(vehicles, tasks, neighbors_vars.get(idx)) == previous_cost && idx != neighbors_vars.size()-1);
+    			index.add(idx);
+    			cost = CalculateCost(vehicles, tasks, neighbors_vars.get(idx));
+    			for (int i= idx; i<neighbors_vars.size(); i++) {
+    				double new_cost = CalculateCost(vehicles, tasks, neighbors_vars.get(i));
+    				if (new_cost < cost && new_cost != previous_cost) {
+    					index = new ArrayList<Integer>();
+    					cost = new_cost;
+    					index.add(i);
+    				}
+    				else if (new_cost == cost) {
+    					index.add(i);
+    				}
+    			}
+    		}
+    	
+    		int random = (int) (Math.random()*index.size());
+    		idx = index.get(random);
+    	
+    		if(proba > conservative_rate) {
+    			int rand = (int) (Math.random()*neighbors_vars.size());
+    			next = neighbors_vars.get(rand);
+    		}
+    		else {
+    			next = neighbors_vars.get(idx);
+    			if (CalculateCost(vehicles, tasks, next) < CalculateCost(vehicles, tasks, best)) {
+    				best = next;
+    			}
+    		}
+    	} while (tabu.contains(next));
+    	return next;
+    		
     }
     
     private Variables UpdateTime (Variables vars, Vehicle vehicle1) {
